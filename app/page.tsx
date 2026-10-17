@@ -49,7 +49,7 @@ export default function Home() {
       new Notification("DEMian · Tareas por atender",{body:fresh.slice(0,3).map(i=>i.title).join(" · ")+(fresh.length>3?" y "+(fresh.length-3)+" más":"")});
       localStorage.setItem(key,JSON.stringify([...seen,...fresh.map(i=>i.id)]));
     }
-  },[connection,items]);
+  },[connection,items,reminders]);
   const filtered = useMemo(()=>items.filter(i=>(section==="overview"||i.kind===section)&&[i.title,i.details,i.category].join(" ").toLowerCase().includes(query.toLowerCase())),[items,section,query]);
   const tasks = items.filter(i=>i.kind==="task");
   const openTasks = tasks.filter(i=>i.status!=="done");
