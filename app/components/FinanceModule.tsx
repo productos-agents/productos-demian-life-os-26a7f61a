@@ -129,7 +129,7 @@ export default function FinanceModule(){
     finally{setBusy(false);}
   }
   function openNew(mode:Kind="expense"){
-    setEditingTx(null);setTxMode(mode);setDraft({...blankDraft(data),type:mode==="transfer"?"expense":mode,category:categories.find(c=>c.type===(mode==="income"?"income":"expense"))?.name||"",fromAccountId:accounts.find(a=>a.is_active)?.id||"",toAccountId:accounts.find(a=>a.is_active&&a.id!==accounts.find(x=>x.is_active)?.id)?.id||""});setFormOpen(true);
+    setTab("transactions");setEditingTx(null);setTxMode(mode);setDraft({...blankDraft(data),type:mode==="transfer"?"expense":mode,category:categories.find(c=>c.type===(mode==="income"?"income":"expense"))?.name||"",fromAccountId:accounts.find(a=>a.is_active)?.id||"",toAccountId:accounts.find(a=>a.is_active&&a.id!==accounts.find(x=>x.is_active)?.id)?.id||""});setFormOpen(true);
   }
   function editTransaction(t:Tx){
     if(t.transfer_group){setMessage("Para proteger la integridad de las cuentas, las transferencias se editan como un par; elimina el traspaso no está permitido en esta versión.");return;}
