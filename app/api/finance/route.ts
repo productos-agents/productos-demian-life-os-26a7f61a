@@ -208,9 +208,17 @@ export async function PATCH(req: NextRequest) {
       const result=await client.query("UPDATE public.flux_accounts SET name=$1,account_type=$2,opening_balance=$3,is_active=$4 WHERE id=$5 AND user_id=$6 RETURNING id",[name,type,opening,b.isActive!==false,id,uid]);
       if(!result.rowCount) throw new Error("No se encontró la cuenta.");
     } else if(entity==="budget") {
-      const active=b.isActive!==false;
-      const result=await client.query("UPDATE public.flux_budgets SET is_active=$1 WHERE id=$2 AND user_id=$3 RETURNING id",[active,id,uid]);
-      if(!result.rowCount) throw new Error("No se encontró el presupuesto.");
+      if(typeof b.name==="string") {
+        const name=short(b.name,80), category=short(b.category,80), period=short(b.period,16), amount=positiveAmount(b.amountLimit), starts=dateOrNull(b.startsOn);
+        if(!name||!category||!["weekly","monthly","yearly"].includes(period)||!starts) throw new Error("Completa nombre, categoría, importe y periodo.");
+        await ownCategory(client,category,"expense",uid);
+        const result=await client.query("UPDATE public.flux_budgets SET name=$1,category=$2,amount_limit=$3,period=$4,starts_on=$5 WHERE id=$6 AND user_id=$7 RETURNING id",[name,category,amount,period,starts,id,uid]);
+        if(!result.rowCount) throw new Error("No se encontró el presupuesto.");
+      } else {
+        const active=b.isActive!==false;
+        const result=await client.query("UPDATE public.flux_budgets SET is_active=$1 WHERE id=$2 AND user_id=$3 RETURNING id",[active,id,uid]);
+        if(!result.rowCount) throw new Error("No se encontró el presupuesto.");
+      }
     } else if(entity==="goal") {
       const add=Number(b.addAmount??0), status=short(b.status,16);
       if(!Number.isFinite(add)||add<0||add>999999999) throw new Error("El abono a la meta debe ser positivo.");
@@ -218,9 +226,18 @@ export async function PATCH(req: NextRequest) {
       const result=await client.query("UPDATE public.flux_savings_goals SET current_amount=current_amount+$1,status=COALESCE(NULLIF($2,''),CASE WHEN current_amount+$1>=target_amount THEN 'completed' ELSE status END),updated_at=now() WHERE id=$3 AND user_id=$4 RETURNING id",[add,status,id,uid]);
       if(!result.rowCount) throw new Error("No se encontró la meta de ahorro.");
     } else if(entity==="recurring") {
-      const active=b.isActive!==false, next=dateOrNull(b.nextDate);
-      const result=await client.query("UPDATE public.flux_recurring_transactions SET is_active=$1,next_date=COALESCE($2,next_date),updated_at=now() WHERE id=$3 AND user_id=$4 RETURNING id",[active,next,id,uid]);
-      if(!result.rowCount) throw new Error("No se encontró el movimiento recurrente.");
+      if(typeof b.name==="string") {
+        const name=short(b.name,100), type=short(b.type,16), category=short(b.category,80), frequency=short(b.frequency,16), amount=positiveAmount(b.amount), next=dateOrNull(b.nextDate);
+        if(!name||!["income","expense"].includes(type)||!["weekly","biweekly","monthly","yearly"].includes(frequency)||!next) throw new Error("Completa nombre, tipo, frecuencia y siguiente fecha.");
+        await ownCategory(client,category,type,uid);
+        const account=await ownAccount(client,b.accountId,uid);
+        const result=await client.query("UPDATE public.flux_recurring_transactions SET name=$1,type=$2,category=$3,description=$4,amount=$5,frequency=$6,next_date=$7,account_id=$8,updated_at=now() WHERE id=$9 AND user_id=$10 RETURNING id",[name,type,category,short(b.description,500),amount,frequency,next,account?.id??null,id,uid]);
+        if(!result.rowCount) throw new Error("No se encontró el movimiento recurrente.");
+      } else {
+        const active=b.isActive!==false, next=dateOrNull(b.nextDate);
+        const result=await client.query("UPDATE public.flux_recurring_transactions SET is_active=$1,next_date=COALESCE($2,next_date),updated_at=now() WHERE id=$3 AND user_id=$4 RETURNING id",[active,next,id,uid]);
+        if(!result.rowCount) throw new Error("No se encontró el movimiento recurrente.");
+      }
     } else {
       throw new Error("Tipo de registro no compatible.");
     }
