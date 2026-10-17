@@ -5,5 +5,11 @@
 .loginShell{min-height:100svh;display:grid;place-items:center;position:relative;overflow:hidden;padding:24px;background:radial-gradient(ellipse at 50% 35%,#18211a 0,transparent 48%),#090b0d}.loginGlow{position:absolute;width:420px;height:420px;border:1px solid #b7f35a14;border-radius:50%;box-shadow:0 0 0 40px #b7f35a05,0 0 0 80px #b7f35a03;pointer-events:none}.loginCard{position:relative;width:min(100%,410px);border:1px solid #30373b;background:rgba(15,19,21,.94);border-radius:18px;padding:35px;box-shadow:0 30px 100px #0008}.loginBrand{padding:0 0 37px}.loginCard h1{font:750 42px/1.12 Manrope,sans-serif;letter-spacing:-.05em;margin:0}.loginCard h1 span{color:var(--green)}.loginCard form{margin-top:28px;display:grid;gap:10px}.loginCard form label{font-size:10px;color:#b8c0c6}.loginCard input{width:100%;background:#090c0e;border:1px solid #343c42;border-radius:8px;padding:13px;color:#f1f3f4;font-size:12px}.loginCard form .primaryBtn{margin-top:6px;padding:13px}.loginError{color:var(--red);font-size:11px;margin:0}.loginFoot{display:flex;align-items:center;gap:8px;border-top:1px solid #252b2f;padding-top:17px;margin-top:24px;color:#7f898f;font-size:8px;letter-spacing:.1em}.loginVersion{position:absolute;bottom:18px;color:#515b62;font-size:9px;letter-spacing:.12em}@media(max-width:480px){.loginCard{padding:27px 23px}.loginCard h1{font-size:37px}}
 
 .logoutBtn{margin-top:6px;color:#d6a5a5}.logoutBtn:hover{border-color:#664040;color:#ff9a9a}
+.loginCard form label{display:grid;gap:8px;font-size:10px;color:#b8c0c6}
+.loginCard form input{display:block;width:100%;min-width:0}
+.loginLinks{display:grid;gap:11px;margin-top:17px;text-align:center}
+.loginLinks button{border:0;background:transparent;color:#b9e68a;font-size:10px;padding:4px;line-height:1.5}
+.loginLinks button:hover{color:var(--green);text-decoration:underline}
+.loginNotice{margin:0;color:#b9e68a;font-size:11px}
 
 .moduleActions{display:flex;gap:9px;align-items:center;justify-content:flex-end;flex-wrap:wrap}.habitCheck{border:0;cursor:pointer;transition:background .15s,color .15s}.habitCheck.done{background:#24351a;color:#c2ff79;box-shadow:inset 0 0 0 1px #637c3d}.habitCheck:hover{filter:brightness(1.15)}@media(max-width:760px){.moduleActions{width:100%;display:grid;grid-template-columns:1fr}.moduleActions .primaryBtn,.moduleActions .outlineBtn{width:100%}}
