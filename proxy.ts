@@ -1,24 +1,51 @@
 import { NextRequest, NextResponse } from "next/server";
-async function expectedToken(password: string) {
-  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), {name:"HMAC",hash:"SHA-256"}, false, ["sign"]);
-  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode("demian-session-v1"));
-  return Array.from(new Uint8Array(signature), b => b.toString(16).padStart(2,"0")).join("");
+
+async function expectedSignature(encoded: string, secret: string) {
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(encoded));
+  return btoa(String.fromCharCode(...new Uint8Array(signature))).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
 }
-function constantTimeEqual(a:string,b:string) {
-  if(a.length!==b.length) return false;
-  let diff=0; for(let i=0;i<a.length;i++) diff |= a.charCodeAt(i)^b.charCodeAt(i);
-  return diff===0;
+function constantTimeEqual(a: string, b: string) {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+function decodePayload(encoded: string): { sub: string; name: string; email: string; role: "user" | "legacy"; fid: string | null; exp: number } | null {
+  try {
+    const padded = encoded.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((encoded.length + 3) % 4);
+    const bytes = Uint8Array.from(atob(padded), c => c.charCodeAt(0));
+    const p = JSON.parse(new TextDecoder().decode(bytes));
+    if (typeof p.sub !== "string" || typeof p.name !== "string" || typeof p.email !== "string" ||
+        !["user", "legacy"].includes(p.role) || (p.fid !== null && typeof p.fid !== "string") ||
+        typeof p.exp !== "number" || p.exp <= Math.floor(Date.now() / 1000)) return null;
+    return p;
+  } catch { return null; }
 }
 export async function proxy(req: NextRequest) {
-  const password=process.env.DEMIAN_ACCESS_PASSWORD;
-  const isAuthRoute=req.nextUrl.pathname==="/login"||req.nextUrl.pathname==="/manifest.webmanifest"||req.nextUrl.pathname.startsWith("/api/auth");
-  if(isAuthRoute) return NextResponse.next();
-  if(!password) return NextResponse.redirect(new URL("/login?setup=1",req.url));
-  const token=req.cookies.get("demian_session")?.value??"";
-  const expected=await expectedToken(password);
-  if(constantTimeEqual(token,expected)) return NextResponse.next();
-  if(req.nextUrl.pathname.startsWith("/api/")) return NextResponse.json({ok:false,error:"Sesión requerida."},{status:401});
-  const url=new URL("/login",req.url);url.searchParams.set("next",req.nextUrl.pathname);
-  return NextResponse.redirect(url);
+  const path = req.nextUrl.pathname;
+  const isPublic = path === "/login" || path === "/register" || path === "/manifest.webmanifest" || path.startsWith("/api/auth");
+  if (isPublic) return NextResponse.next();
+
+  const secret = process.env.DEMIAN_SESSION_SECRET || process.env.DEMIAN_DATABASE_URL || process.env.DEMIAN_ACCESS_PASSWORD;
+  const token = req.cookies.get("demian_session")?.value ?? "";
+  const [encoded, signature, extra] = token.split(".");
+  let payload: ReturnType<typeof decodePayload> = null;
+  if (secret && encoded && signature && !extra) {
+    const expected = await expectedSignature(encoded, secret);
+    if (constantTimeEqual(signature, expected)) payload = decodePayload(encoded);
+  }
+  if (!payload) {
+    if (path.startsWith("/api/")) return NextResponse.json({ ok: false, error: "Necesitas iniciar sesión." }, { status: 401, headers: { "Cache-Control": "private, no-store" } });
+    const url = new URL("/login", req.url);
+    url.searchParams.set("next", path);
+    return NextResponse.redirect(url);
+  }
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("x-demian-user-id", payload.sub);
+  requestHeaders.set("x-demian-user-role", payload.role);
+  if (payload.fid) requestHeaders.set("x-demian-flux-user-id", payload.fid);
+  else requestHeaders.delete("x-demian-flux-user-id");
+  return NextResponse.next({ request: { headers: requestHeaders } });
 }
-export const config={matcher:["/((?!_next/static|_next/image|favicon.ico|icon.svg|sw.js).*)"]};
+export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg|sw.js).*)"] };
