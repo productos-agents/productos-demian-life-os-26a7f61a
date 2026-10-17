@@ -50,7 +50,7 @@ export default function Home() {
   const add = async (e:React.FormEvent) => {
     e.preventDefault(); if (!form.title.trim()) return;
     setSaving(true); setNotice("");
-    const payload = {kind:section==="overview"?"task":section,...form,amount:section==="transaction"?form.amount:null};
+    const payload = {kind:section==="overview"?"task":section,...form,category:section==="transaction"?(form.category||"Ingreso"):form.category,amount:section==="transaction"?form.amount:null};
     try {
       const r=await fetch("/api/data",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
       const d=await r.json(); if(!r.ok||!d.ok) throw new Error(d.error||"No se pudo guardar");
