@@ -1,7 +1,1 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg width="512" height="512" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- ProductOS Origami Favicon -->
-  <path d="M4 32 L18 4 L32 32 Z" fill="#BBBBBB"/>
-  <path d="M18 4 L4 32 L18 32 Z" fill="#555555"/>
-  <path d="M18 4 L18 32 L32 4 Z" fill="#1A1A1A"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="#090b0d"/><path d="M16 45V19h7l18 16V19h7v26h-7L23 29v16z" fill="#c6cbd0"/><circle cx="49" cy="15" r="4" fill="#b4ff39"/></svg>
