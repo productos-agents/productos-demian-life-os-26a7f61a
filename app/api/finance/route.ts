@@ -91,10 +91,11 @@ async function getData(uid: string) {
     preferences: prefs.rows[0]?.preferences ?? { widgets: { balance: true, trends: true, categories: true, budgets: true, goals: true }, chartMode: "expenses" }
   };
 }
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    await ready();
-    return NextResponse.json({ ok: true, finance: await getData(ownerId()), database: "connected" }, { headers: noCache });
+    const uid = ownerId(req);
+    await ready(uid);
+    return NextResponse.json({ ok: true, finance: await getData(uid), database: "connected" }, { headers: noCache });
   } catch (error) {
     console.error("DEMian FLUX GET:", error);
     return NextResponse.json({ ok: false, error: "No fue posible conectar con el módulo financiero FLUX." }, { status: 503, headers: noCache });
