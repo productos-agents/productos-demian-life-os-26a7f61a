@@ -5,6 +5,7 @@ import FinanceModule from "./components/FinanceModule";
 
 type Kind = "task" | "transaction" | "habit" | "note";
 type Item = { id:string; kind:Kind; title:string; details:string; amount:number|null; category:string; dueDate:string; status:string; frequency:string; doneToday?:boolean; createdAt:string };
+type FinanceSnapshot = {accounts:Array<{account_type:string;balance:number;is_active:boolean}>;transactions:Array<{type:string;amount:number;transaction_date:string;transfer_group:string|null}>};
 type Section = "overview" | Kind;
 const sections: {id:Section; label:string; short:string; glyph:string}[] = [
   {id:"overview",label:"Vista general",short:"Inicio",glyph:"⌂"},
@@ -20,6 +21,8 @@ export default function Home() {
   const [section,setSection] = useState<Section>("overview");
   const [loading,setLoading] = useState(true);
   const [connection,setConnection] = useState<"checking"|"connected"|"error">("checking");
+  const [financeSnapshot,setFinanceSnapshot] = useState<FinanceSnapshot|null>(null);
+  const [financeConnection,setFinanceConnection] = useState<"checking"|"connected"|"error">("checking");
   const [query,setQuery] = useState("");
   const [notice,setNotice] = useState("");
   const [formOpen,setFormOpen] = useState(false);
@@ -27,12 +30,20 @@ export default function Home() {
   const [saving,setSaving] = useState(false);
   const [reminders,setReminders] = useState(false);
   const refresh = useCallback(async () => {
+    setFinanceConnection("checking");
     try {
       const r = await fetch("/api/data",{cache:"no-store"});
       const d = await r.json();
       if (!r.ok || !d.ok) throw new Error(d.error || "Error de conexión");
       setItems(d.items); setConnection("connected");
     } catch { setConnection("error"); }
+    try {
+      const r = await fetch("/api/finance",{cache:"no-store"});
+      const d = await r.json();
+      if (!r.ok || !d.ok) throw new Error(d.error || "FLUX no disponible");
+      setFinanceSnapshot({accounts:d.finance.accounts,transactions:d.finance.transactions});
+      setFinanceConnection("connected");
+    } catch { setFinanceSnapshot(null); setFinanceConnection("error"); }
     finally { setLoading(false); }
   },[]);
   useEffect(()=>{ void refresh(); },[refresh]);
@@ -55,9 +66,14 @@ export default function Home() {
   const tasks = items.filter(i=>i.kind==="task");
   const openTasks = tasks.filter(i=>i.status!=="done");
   const dueTasks = openTasks.filter(i=>i.dueDate && i.dueDate<=today());
-  const transactions = items.filter(i=>i.kind==="transaction");
-  const income = transactions.filter(i=>i.category==="Ingreso").reduce((s,i)=>s+(i.amount||0),0);
-  const expenses = transactions.filter(i=>i.category==="Gasto").reduce((s,i)=>s+(i.amount||0),0);
+  const financeTx = financeSnapshot?.transactions ?? [];
+  const financeAccounts = financeSnapshot?.accounts ?? [];
+  const financeMonth = today().slice(0,7);
+  const monthFinanceTx = financeTx.filter(t=>String(t.transaction_date).slice(0,7)===financeMonth);
+  const income = monthFinanceTx.filter(t=>t.type==="income"&&!t.transfer_group).reduce((s,t)=>s+Number(t.amount||0),0);
+  const expenses = monthFinanceTx.filter(t=>t.type==="expense"&&!t.transfer_group).reduce((s,t)=>s+Number(t.amount||0),0);
+  const financeBalance = financeAccounts.filter(a=>a.is_active).reduce((s,a)=>s+(a.account_type==="credit"?-Number(a.balance):Number(a.balance)),0);
+  const financeMovementCount = monthFinanceTx.filter(t=>!t.transfer_group).length;
   const habits = items.filter(i=>i.kind==="habit");
   const habitsDoneToday=habits.filter(i=>i.doneToday).length;
   const notes = items.filter(i=>i.kind==="note");
@@ -118,10 +134,10 @@ export default function Home() {
       <div className="content">
         {section==="overview"?<>
           <div className="welcome"><div><p className="eyebrow">{new Intl.DateTimeFormat("es-MX",{weekday:"long"}).format(new Date()).toUpperCase()} · TU CENTRO DE CONTROL</p><h1>Vamos a poner tu vida<br/><span>en orden.</span></h1><p className="subhead">Todo lo importante, en un solo lugar. Un paso a la vez.</p></div><div className="dateCard"><span>HOY</span><b>{new Intl.DateTimeFormat("es-MX",{day:"2-digit",month:"short"}).format(new Date())}</b><small>{new Intl.DateTimeFormat("es-MX",{weekday:"long"}).format(new Date())}</small></div></div>
-          <div className="sectionHead"><div><h2>Tu resumen</h2><p>Una vista rápida de cómo va tu día.</p></div><span className={"dbPill "+connection}>{connection==="connected"?"● SINCRONIZADO":connection==="checking"?"◌ CONECTANDO":"● SIN CONEXIÓN"}</span></div>
+          <div className="sectionHead"><div><h2>Tu resumen</h2><p>Una vista rápida de cómo va tu día.</p></div><span className={"dbPill "+(connection==="connected"&&financeConnection==="connected"?"connected":connection==="error"||financeConnection==="error"?"error":"")}>{connection==="connected"&&financeConnection==="connected"?"● SINCRONIZADO":connection==="checking"||financeConnection==="checking"?"◌ CONECTANDO":"● SIN CONEXIÓN"}</span></div>
           <div className="statGrid">
             <article className="statCard"><div className="statTop"><span className="statIcon violet">◷</span><span className="statHint">AGENDA</span></div><strong>{openTasks.length.toString().padStart(2,"0")}</strong><p>Pendientes activos</p><small>{dueTasks.length?dueTasks.length+" requieren atención":"Tu agenda bajo control"}</small></article>
-            <article className="statCard"><div className="statTop"><span className="statIcon green">$</span><span className="statHint">FINANZAS</span></div><strong>{money(income-expenses)}</strong><p>Balance registrado</p><small>{transactions.length} movimientos guardados</small></article>
+            <article className="statCard"><div className="statTop"><span className="statIcon green">$</span><span className="statHint">FINANZAS</span></div><strong>{financeConnection==="connected"?money(financeBalance):"—"}</strong><p>Saldo neto de cuentas</p><small>{financeConnection==="connected"?financeMovementCount+" movimientos este mes":financeConnection==="checking"?"Conectando con FLUX":"FLUX no disponible"}</small></article>
             <article className="statCard"><div className="statTop"><span className="statIcon blue">✳</span><span className="statHint">BIENESTAR</span></div><strong>{habitsDoneToday.toString().padStart(2,"0")}</strong><p>Hábitos completados hoy</p><small>{habitsDoneToday} de {habits.length} registrados</small></article>
             <article className="statCard"><div className="statTop"><span className="statIcon amber">▤</span><span className="statHint">CONOCIMIENTO</span></div><strong>{notes.length.toString().padStart(2,"0")}</strong><p>Notas en tu cerebro</p><small>Ideas listas para recuperar</small></article>
           </div>
@@ -130,7 +146,7 @@ export default function Home() {
               {loading?<div className="empty">Cargando tus registros…</div>:openTasks.slice(0,4).length?<div className="taskList">{openTasks.slice(0,4).map(t=><div className="taskRow" key={t.id}><button className="check" onClick={()=>void toggle(t)} aria-label="Completar tarea"></button><div className="taskText"><b>{t.title}</b><small>{t.dueDate?"Fecha límite: "+t.dueDate:t.details||"Sin fecha asignada"}</small></div><button className="more" onClick={()=>void remove(t)} aria-label="Eliminar tarea">×</button></div>)}</div>:<div className="empty"><span>✧</span><b>Espacio para lo que importa.</b><p>Añade tu primera tarea para comenzar.</p><button className="textBtn" onClick={()=>{setSection("task");setFormOpen(true)}}>Crear una tarea ↗</button></div>}
               <button className="addRow" onClick={()=>{setSection("task");setFormOpen(true)}}><span>＋</span> Añadir tarea</button>
             </section>
-            <section className="panel moneyPanel"><div className="panelHead"><div><h3>Tu dinero</h3><p>Movimientos registrados</p></div><button className="textBtn" onClick={()=>setSection("transaction")}>Ver finanzas ↗</button></div><div className="balanceLabel">BALANCE NETO</div><div className="balance">{money(income-expenses)}</div><div className="moneyBars"><div><span><i className="incomeDot"></i>Ingresos</span><b>{money(income)}</b></div><div className="bar"><i style={{width:(income+expenses?income/(income+expenses)*100:0)+"%"}}/></div><div><span><i className="expenseDot"></i>Gastos</span><b>{money(expenses)}</b></div><div className="bar red"><i style={{width:(income+expenses?expenses/(income+expenses)*100:0)+"%"}}/></div></div><button className="outlineBtn" onClick={()=>{setSection("transaction");setFormOpen(true)}}>＋ Registrar movimiento</button><p className="microcopy">Solo incluye movimientos que hayas registrado.</p></section>
+            <section className="panel moneyPanel"><div className="panelHead"><div><h3>Tu dinero</h3><p>{new Intl.DateTimeFormat("es-MX",{month:"long",year:"numeric"}).format(new Date())} · FLUX</p></div><button className="textBtn" onClick={()=>setSection("transaction")}>Ver finanzas ↗</button></div><div className="balanceLabel">BALANCE NETO DE CUENTAS</div><div className="balance">{financeConnection==="connected"?money(financeBalance):"—"}</div><div className="moneyBars"><div><span><i className="incomeDot"></i>Ingresos del mes</span><b>{financeConnection==="connected"?money(income):"—"}</b></div><div className="bar"><i style={{width:(income+expenses?income/(income+expenses)*100:0)+"%"}}/></div><div><span><i className="expenseDot"></i>Gastos del mes</span><b>{financeConnection==="connected"?money(expenses):"—"}</b></div><div className="bar red"><i style={{width:(income+expenses?expenses/(income+expenses)*100:0)+"%"}}/></div></div><button className="outlineBtn" onClick={()=>{setSection("transaction");setFormOpen(true)}}>＋ Registrar movimiento</button><p className="microcopy">{financeConnection==="connected"?"Sincronizado con los movimientos y saldos de FLUX.":"Revisa la conexión con FLUX para ver los importes."}</p></section>
           </div>
           <div className="bottomGrid"><section className="panel"><div className="panelHead"><div><h3>Pequeños hábitos, grandes cambios</h3><p>Tu espacio de bienestar</p></div><button className="textBtn" onClick={()=>setSection("habit")}>Explorar ↗</button></div><div className="habitPreview">{habits.slice(0,3).map(h=><div key={h.id}><button className={h.doneToday?"habitCheck done":"habitCheck"} onClick={()=>void toggleHabit(h)} aria-label={h.doneToday?"Desmarcar hábito":"Completar hábito"}>{h.doneToday?"✓":"✳"}</button><span><b>{h.title}</b><small>{h.frequency||"Hábito personal"}</small></span></div>)}{!habits.length&&<div className="empty compact">Tus hábitos comienzan con una acción pequeña.<button className="textBtn" onClick={()=>{setSection("habit");setFormOpen(true)}}>Añadir hábito ↗</button></div>}</div></section><section className="quoteCard"><span className="quoteMark">“</span><p>No necesitas tener todo resuelto. Solo necesitas saber cuál es el siguiente paso.</p><small>UNA COSA A LA VEZ</small><div className="quoteOrb"></div></section></div>
         </>:section==="transaction"?<FinanceModule/>:<><div className="moduleHero"><div><p className="eyebrow">DEMian LIFE OS / {section.toUpperCase()}</p><h1>{heading}<span>.</span></h1><p className="subhead">{section==="task"?"Organiza pendientes, fechas límite y próximos pasos.":section==="habit"?"Registra rutinas y crea consistencia con pequeños pasos.":section==="note"?"Guarda ideas, notas y referencias para encontrarlas después.":"Registra y sigue tus hábitos."}</p></div><div className="moduleActions">{section==="task"&&<button className="outlineBtn" onClick={exportCalendar}>↓ Exportar calendario .ics</button>}<button className="primaryBtn" onClick={()=>setFormOpen(v=>!v)}>＋ Nuevo registro</button></div></div>
