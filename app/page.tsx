@@ -84,7 +84,7 @@ export default function Home() {
   const exportCalendar = () => {
     const dated=tasks.filter(t=>t.dueDate&&t.status!=="done");
     if(!dated.length){setNotice("Añade una fecha límite a una tarea para exportarla al calendario.");return;}
-    const esc=(s:string)=>s.replace(/\\/g,"\\\\").replace(/[,;]/g,"\\  const remove = async (item:Item) => {").replace(/\r?\n/g,"\\n");
+    const esc=(s:string)=>s.split(String.fromCharCode(92)).join(String.fromCharCode(92,92)).split(",").join(String.fromCharCode(92)+",").split(";").join(String.fromCharCode(92)+";").split(String.fromCharCode(10)).join(String.fromCharCode(92)+"n");
     const events=dated.map(t=>{
       const start=t.dueDate.replace(/-/g,"");
       const next=new Date(t.dueDate+"T12:00:00"); next.setDate(next.getDate()+1);
