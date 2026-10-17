@@ -133,9 +133,6 @@ export default function Home() {
   },[]);
   useEffect(()=>{ void refresh(); },[refresh]);
   useEffect(()=>{
-    if ("serviceWorker" in navigator) void navigator.serviceWorker.register("/sw.js").catch(()=>{});
-  },[]);
-  useEffect(()=>{
     const interval=window.setInterval(()=>{
       const next=getMexicoDateKey();
       setQuoteDay(current=>current===next?current:next);
