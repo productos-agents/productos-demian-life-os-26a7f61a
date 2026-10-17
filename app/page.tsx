@@ -38,6 +38,18 @@ export default function Home() {
   useEffect(()=>{
     if ("serviceWorker" in navigator) void navigator.serviceWorker.register("/sw.js").catch(()=>{});
   },[]);
+  useEffect(()=>{
+    if(connection!=="connected"||!("Notification" in window)||Notification.permission!=="granted") return;
+    const due=items.filter(i=>i.kind==="task"&&i.status!=="done"&&i.dueDate&&i.dueDate<=today());
+    if(!due.length)return;
+    const key="demian-notified-"+today();
+    let seen:string[]=[]; try{seen=JSON.parse(localStorage.getItem(key)||"[]") as string[]}catch{}
+    const fresh=due.filter(i=>!seen.includes(i.id));
+    if(fresh.length){
+      new Notification("DEMian · Tareas por atender",{body:fresh.slice(0,3).map(i=>i.title).join(" · ")+(fresh.length>3?" y "+(fresh.length-3)+" más":"")});
+      localStorage.setItem(key,JSON.stringify([...seen,...fresh.map(i=>i.id)]));
+    }
+  },[connection,items]);
   const filtered = useMemo(()=>items.filter(i=>(section==="overview"||i.kind===section)&&[i.title,i.details,i.category].join(" ").toLowerCase().includes(query.toLowerCase())),[items,section,query]);
   const tasks = items.filter(i=>i.kind==="task");
   const openTasks = tasks.filter(i=>i.status!=="done");
@@ -46,6 +58,7 @@ export default function Home() {
   const income = transactions.filter(i=>i.category==="Ingreso").reduce((s,i)=>s+(i.amount||0),0);
   const expenses = transactions.filter(i=>i.category==="Gasto").reduce((s,i)=>s+(i.amount||0),0);
   const habits = items.filter(i=>i.kind==="habit");
+  const habitsDoneToday=habits.filter(i=>i.doneToday).length;
   const notes = items.filter(i=>i.kind==="note");
   const add = async (e:React.FormEvent) => {
     e.preventDefault(); if (!form.title.trim()) return;
