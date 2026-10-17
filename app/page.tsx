@@ -15,7 +15,7 @@ const sections: {id:Section; label:string; short:string; glyph:string}[] = [
   {id:"habit",label:"Salud y hábitos",short:"Hábitos",glyph:"✳"},
   {id:"note",label:"Segundo cerebro",short:"Notas",glyph:"▤"}
 ];
-const today = () => new Date().toISOString().slice(0,10);
+const today = () => { const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
 const money = (n:number) => new Intl.NumberFormat("es-MX",{style:"currency",currency:"MXN",maximumFractionDigits:2}).format(n);
 export default function Home() {
   const [items,setItems] = useState<Item[]>([]);
@@ -33,7 +33,7 @@ export default function Home() {
   const refresh = useCallback(async () => {
     setFinanceConnection("checking");
     try {
-      const r = await fetch("/api/data",{cache:"no-store"});
+      const r = await fetch("/api/data?date="+today(),{cache:"no-store"});
       const d = await r.json();
       if (!r.ok || !d.ok) throw new Error(d.error || "Error de conexión");
       setItems(d.items); setConnection("connected");
@@ -81,7 +81,7 @@ export default function Home() {
   const add = async (e:React.FormEvent) => {
     e.preventDefault(); if (!form.title.trim()) return;
     setSaving(true); setNotice("");
-    const payload = {kind:section==="overview"?"task":section,...form,category:section==="transaction"?(form.category||"Ingreso"):form.category,amount:section==="transaction"?form.amount:null};
+    const payload = {kind:section==="overview"?"task":section,...form,category:section==="transaction"?(form.category||"Ingreso"):form.category,amount:section==="transaction"?form.amount:null,logDate:today()};
     try {
       const r=await fetch("/api/data",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
       const d=await r.json(); if(!r.ok||!d.ok) throw new Error(d.error||"No se pudo guardar");
@@ -91,12 +91,12 @@ export default function Home() {
   };
   const toggle = async (item:Item) => {
     const status=item.status==="done"?"active":"done";
-    try { const r=await fetch("/api/data",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:item.id,status})}); const d=await r.json();if(!r.ok||!d.ok)throw new Error();setItems(prev=>prev.map(x=>x.id===item.id?d.item:x)); }
+    try { const r=await fetch("/api/data",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:item.id,status,logDate:today()})}); const d=await r.json();if(!r.ok||!d.ok)throw new Error();setItems(prev=>prev.map(x=>x.id===item.id?d.item:x)); }
     catch {setNotice("No se pudo actualizar. Comprueba la conexión.");}
   };
   const toggleHabit = async (item:Item) => {
     const doneToday=!item.doneToday;
-    try{const r=await fetch("/api/data",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:item.id,doneToday})});const d=await r.json();if(!r.ok||!d.ok)throw new Error();setItems(prev=>prev.map(x=>x.id===item.id?d.item:x));}
+    try{const r=await fetch("/api/data",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:item.id,doneToday,logDate:today()})});const d=await r.json();if(!r.ok||!d.ok)throw new Error();setItems(prev=>prev.map(x=>x.id===item.id?d.item:x));}
     catch{setNotice("No se pudo actualizar el hábito. Comprueba la conexión.");}
   };
   const exportCalendar = () => {
