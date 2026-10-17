@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 type Kind = "task" | "transaction" | "habit" | "note";
-type Item = { id:string; kind:Kind; title:string; details:string; amount:number|null; category:string; dueDate:string; status:string; frequency:string; createdAt:string };
+type Item = { id:string; kind:Kind; title:string; details:string; amount:number|null; category:string; dueDate:string; status:string; frequency:string; doneToday?:boolean; createdAt:string };
 type Section = "overview" | Kind;
 const sections: {id:Section; label:string; short:string; glyph:string}[] = [
   {id:"overview",label:"Vista general",short:"Inicio",glyph:"⌂"},
