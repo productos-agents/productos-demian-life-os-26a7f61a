@@ -11,7 +11,7 @@ function constantTimeEqual(a:string,b:string) {
 }
 export async function proxy(req: NextRequest) {
   const password=process.env.DEMIAN_ACCESS_PASSWORD;
-  const isAuthRoute=req.nextUrl.pathname==="/login"||req.nextUrl.pathname.startsWith("/api/auth");
+  const isAuthRoute=req.nextUrl.pathname==="/login"||req.nextUrl.pathname==="/manifest.webmanifest"||req.nextUrl.pathname.startsWith("/api/auth");
   if(isAuthRoute) return NextResponse.next();
   if(!password) return NextResponse.redirect(new URL("/login?setup=1",req.url));
   const token=req.cookies.get("demian_session")?.value??"";
