@@ -17,22 +17,22 @@ function db() {
   });
   return globalPool.fluxPool;
 }
-function ownerId() {
-  const id = process.env.DEMIAN_FLUX_USER_ID;
-  if (!id) throw new Error("DEMIAN_FLUX_USER_ID no está configurada");
+function ownerId(req: NextRequest) {
+  const id = req.headers.get("x-demian-flux-user-id");
+  if (!id) throw new Error("Esta cuenta no tiene un espacio de finanzas asociado.");
   return id;
 }
-async function ready() {
+async function ready(uid: string) {
   if (!globalPool.fluxReady) globalPool.fluxReady = (async () => {
     const p = db();
     await p.query("SELECT 1 FROM public.flux_users LIMIT 0");
     await p.query("SELECT 1 FROM public.flux_transactions LIMIT 0");
     await p.query("SELECT 1 FROM public.flux_savings_goals LIMIT 0");
     await p.query("SELECT 1 FROM public.flux_recurring_transactions LIMIT 0");
-    const result = await p.query("SELECT id FROM public.flux_users WHERE id=$1 LIMIT 1", [ownerId()]);
-    if (!result.rows.length) throw new Error("El usuario financiero configurado no existe en FLUX.");
   })().catch(error => { globalPool.fluxReady = undefined; throw error; });
-  return globalPool.fluxReady;
+  await globalPool.fluxReady;
+  const result = await db().query("SELECT id FROM public.flux_users WHERE id=$1 LIMIT 1", [uid]);
+  if (!result.rows.length) throw new Error("El espacio financiero de esta cuenta no existe.");
 }
 const fail = (message: string, status = 400) => NextResponse.json({ ok: false, error: message }, { status });
 const noCache = { "Cache-Control": "private, no-store, max-age=0" };
