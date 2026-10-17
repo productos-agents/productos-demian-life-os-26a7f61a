@@ -76,6 +76,24 @@ export default function Home() {
     try { const r=await fetch("/api/data",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:item.id,status})}); const d=await r.json();if(!r.ok||!d.ok)throw new Error();setItems(prev=>prev.map(x=>x.id===item.id?d.item:x)); }
     catch {setNotice("No se pudo actualizar. Comprueba la conexión.");}
   };
+  const toggleHabit = async (item:Item) => {
+    const doneToday=!item.doneToday;
+    try{const r=await fetch("/api/data",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:item.id,doneToday})});const d=await r.json();if(!r.ok||!d.ok)throw new Error();setItems(prev=>prev.map(x=>x.id===item.id?d.item:x));}
+    catch{setNotice("No se pudo actualizar el hábito. Comprueba la conexión.");}
+  };
+  const exportCalendar = () => {
+    const dated=tasks.filter(t=>t.dueDate&&t.status!=="done");
+    if(!dated.length){setNotice("Añade una fecha límite a una tarea para exportarla al calendario.");return;}
+    const esc=(s:string)=>s.replace(/\\/g,"\\\\").replace(/[,;]/g,"\\  const remove = async (item:Item) => {").replace(/\r?\n/g,"\\n");
+    const events=dated.map(t=>{
+      const start=t.dueDate.replace(/-/g,"");
+      const next=new Date(t.dueDate+"T12:00:00"); next.setDate(next.getDate()+1);
+      const end=next.getFullYear()+String(next.getMonth()+1).padStart(2,"0")+String(next.getDate()).padStart(2,"0");
+      return ["BEGIN:VEVENT","UID:demian-"+t.id+"@life-os","DTSTAMP:"+new Date().toISOString().replace(/[-:]/g,"").replace(/\.\d{3}/,""),"DTSTART;VALUE=DATE:"+start,"DTEND;VALUE=DATE:"+end,"SUMMARY:"+esc(t.title),...(t.details?["DESCRIPTION:"+esc(t.details)]:[]),"END:VEVENT"].join("\r\n");
+    });
+    const content=["BEGIN:VCALENDAR","VERSION:2.0","CALSCALE:GREGORIAN","PRODID:-//DEMian Life OS//ES","METHOD:PUBLISH",...events,"END:VCALENDAR"].join("\r\n");
+    const url=URL.createObjectURL(new Blob([content],{type:"text/calendar;charset=utf-8"}));const a=document.createElement("a");a.href=url;a.download="demian-agenda.ics";a.click();URL.revokeObjectURL(url);setNotice("Agenda exportada. Importa el archivo .ics en Calendario de Apple o Google Calendar.");
+  };
   const remove = async (item:Item) => {
     try {const r=await fetch("/api/data?id="+encodeURIComponent(item.id),{method:"DELETE"});const d=await r.json();if(!r.ok||!d.ok)throw new Error();setItems(prev=>prev.filter(x=>x.id!==item.id));setNotice("Registro eliminado.");}
     catch {setNotice("No se pudo eliminar el registro.");}
