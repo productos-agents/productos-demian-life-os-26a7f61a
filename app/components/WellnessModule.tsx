@@ -76,7 +76,20 @@ export default function WellnessModule(){
     setDraft(existing?{date,sleepHours:existing.sleep_hours==null?"":String(existing.sleep_hours),waterGlasses:existing.water_glasses==null?"":String(existing.water_glasses),activityMinutes:existing.activity_minutes==null?"":String(existing.activity_minutes),mood:existing.mood==null?"":String(existing.mood),weightKg:existing.weight_kg==null?"":String(existing.weight_kg),notes:existing.notes||""}:emptyForm(date));
     setMessage("");setError("");
   }
-  async function deleteCheckin(){\n    if(!logs.some(l=>l.log_date===draft.date))return;\n    if(!window.confirm("¿Eliminar el registro de bienestar del "+fmtDate(draft.date)+"?"))return;\n    try{const r=await fetch("/api/wellness?date="+encodeURIComponent(draft.date),{method:"DELETE"});const j=await r.json();if(!r.ok||!j.ok)throw new Error(j.error||"No se pudo eliminar.");setLogs(prev=>prev.filter(l=>l.log_date!==draft.date));setDraft(emptyForm(draft.date));setMessage("Registro de bienestar eliminado.");setError("");}\n    catch(e){setError(e instanceof Error?e.message:"No se pudo eliminar el registro.");}\n  }\n  async function createHabit(e:FormEvent){
+  async function deleteCheckin(){
+    if(!logs.some(l=>l.log_date===draft.date))return;
+    if(!window.confirm("¿Eliminar el registro de bienestar del "+fmtDate(draft.date)+"?"))return;
+    try{
+      const r=await fetch("/api/wellness?date="+encodeURIComponent(draft.date),{method:"DELETE"});
+      const j=await r.json();
+      if(!r.ok||!j.ok)throw new Error(j.error||"No se pudo eliminar.");
+      setLogs(prev=>prev.filter(l=>l.log_date!==draft.date));
+      setDraft(emptyForm(draft.date));
+      setMessage("Registro de bienestar eliminado.");
+      setError("");
+    }catch(e){setError(e instanceof Error?e.message:"No se pudo eliminar el registro.");}
+  }
+  async function createHabit(e:FormEvent){
     e.preventDefault();if(!habitTitle.trim())return;setSavingHabit(true);setError("");setMessage("");
     try{
       const r=await fetch("/api/data",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:"habit",title:habitTitle.trim(),details:habitDetails,frequency:habitFrequency,logDate:todayLocal()})});

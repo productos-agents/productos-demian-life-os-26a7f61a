@@ -74,7 +74,7 @@ export async function DELETE(req:NextRequest) {
   try {
     await ready();
     const date=String(new URL(req.url).searchParams.get("date")??"");
-    if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)) return NextResponse.json({ok:false,error:"Fecha inválida."},{status:400,headers:noCache});
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(date)) return NextResponse.json({ok:false,error:"Fecha inválida."},{status:400,headers:noCache});
     const {rowCount}=await db().query("DELETE FROM public.demian_wellness_logs WHERE log_date=$1::date",[date]);
     if(!rowCount) return NextResponse.json({ok:false,error:"No existe un registro para esa fecha."},{status:404,headers:noCache});
     return NextResponse.json({ok:true},{headers:noCache});
