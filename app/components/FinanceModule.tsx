@@ -26,17 +26,28 @@ const tabs:{id:Tab;label:string;glyph:string}[]=[
 const isoToday=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");};
 const monthKey=(d=new Date())=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");
 const fmt=(v:number)=>new Intl.NumberFormat("es-MX",{style:"currency",currency:"MXN",maximumFractionDigits:2}).format(v||0);
-const dateFmt=(v:string|null|undefined)=>v?new Date(v+"T12:00:00").toLocaleDateString("es-MX",{day:"2-digit",month:"short",year:"numeric"}):"Sin fecha";
+const dateFmt=(v:string|null|undefined)=>{if(!v)return "Sin fecha";const date=String(v).slice(0,10);return new Date(date+"T12:00:00").toLocaleDateString("es-MX",{day:"2-digit",month:"short",year:"numeric"});};
 const blankDraft=(data:FinanceData|null):Draft=>({name:"",category:"",type:"expense",amount:"",description:"",date:isoToday(),accountId:data?.accounts.find(a=>a.is_active)?.id||"",openingBalance:"0",accountType:"cash",period:"monthly",startsOn:isoToday(),targetAmount:"",currentAmount:"0",targetDate:"",frequency:"monthly",nextDate:isoToday(),fromAccountId:data?.accounts.find(a=>a.is_active)?.id||"",toAccountId:"",color:"#FF6E75",icon:"circle"});
 const CAT_COLORS=["#B7F35A","#FF6E75","#58B6FF","#B49AFF","#FFBE69","#62D6C8","#E89BCB","#A9B4BE","#F58A62","#8EA3FF"];
 const monthExpense = (t:Tx)=>t.type==="expense"&&!t.transfer_group;
 const monthIncome = (t:Tx)=>t.type==="income"&&!t.transfer_group;
-function startOfPeriod(date:string,period:string) {
-  const d=new Date(date+"T12:00:00");
-  if(period==="weekly"){const day=(d.getDay()+6)%7;d.setDate(d.getDate()-day);}
-  else if(period==="yearly"){d.setMonth(0,1);}
-  else d.setDate(1);
-  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+function startOfPeriod(startDate:string,period:string) {
+  const start=new Date(startDate+"T12:00:00");
+  const today=new Date(isoToday()+"T12:00:00");
+  if(start>today)return startDate;
+  if(period==="weekly"){
+    const elapsed=Math.floor((today.getTime()-start.getTime())/86400000);
+    start.setDate(start.getDate()+Math.floor(elapsed/7)*7);
+  }else if(period==="monthly"){
+    let candidate=new Date(today.getFullYear(),today.getMonth(),Math.min(start.getDate(),new Date(today.getFullYear(),today.getMonth()+1,0).getDate()),12);
+    if(candidate>today)candidate=new Date(today.getFullYear(),today.getMonth()-1,Math.min(start.getDate(),new Date(today.getFullYear(),today.getMonth(),0).getDate()),12);
+    start.setTime(candidate.getTime());
+  }else{
+    let candidate=new Date(today.getFullYear(),start.getMonth(),Math.min(start.getDate(),new Date(today.getFullYear(),start.getMonth()+1,0).getDate()),12);
+    if(candidate>today)candidate=new Date(today.getFullYear()-1,start.getMonth(),Math.min(start.getDate(),new Date(today.getFullYear()-1,start.getMonth()+1,0).getDate()),12);
+    start.setTime(candidate.getTime());
+  }
+  return start.getFullYear()+"-"+String(start.getMonth()+1).padStart(2,"0")+"-"+String(start.getDate()).padStart(2,"0");
 }
 function periodName(p:string){return p==="weekly"?"Semanal":p==="yearly"?"Anual":"Mensual";}
 function groupTransfers(txs:Tx[]) {
@@ -162,20 +173,25 @@ export default function FinanceModule(){
     doc.setTextColor(225,230,234);doc.setFontSize(10);doc.text("REPORTE FINANCIERO PERSONAL",16,y+7);
     doc.setTextColor(137,147,155);doc.setFont("helvetica","normal");doc.setFontSize(9);doc.text("Generado "+new Date().toLocaleDateString("es-MX"),pageWidth-16,y,{align:"right"});
     y+=22;doc.setDrawColor(47,55,61);doc.line(16,y,pageWidth-16,y);y+=12;
+    const reportKey=tab==="reports"?periodFilter:currentMonth;
+    const reportTx=transactions.filter(t=>String(t.transaction_date).slice(0,7)===reportKey);
+    const reportIncome=reportTx.filter(monthIncome).reduce((s,t)=>s+Number(t.amount),0);
+    const reportExpense=reportTx.filter(monthExpense).reduce((s,t)=>s+Number(t.amount),0);
     const box=(x:number,top:number,label:string,value:string,color:[number,number,number])=>{doc.setFillColor(18,22,25);doc.roundedRect(x,top,56,25,3,3,"F");doc.setTextColor(130,140,148);doc.setFontSize(7);doc.text(label.toUpperCase(),x+4,top+7);doc.setTextColor(...color);doc.setFont("helvetica","bold");doc.setFontSize(10);doc.text(value,x+4,top+16);doc.setFont("helvetica","normal");};
-    box(16,y,"Saldo de cuentas",fmt(allBalance),[115,183,255]);box(77,y,"Ingresos del mes",fmt(thisMonthIncome),[183,243,90]);box(138,y,"Gastos del mes",fmt(thisMonthExpense),[255,110,117]);y+=35;
-    doc.setTextColor(230,234,237);doc.setFont("helvetica","bold");doc.setFontSize(12);doc.text("Movimientos recientes",16,y);y+=7;
+    box(16,y,"Saldo de cuentas",fmt(allBalance),[115,183,255]);box(77,y,"Ingresos "+reportKey,fmt(reportIncome),[183,243,90]);box(138,y,"Gastos "+reportKey,fmt(reportExpense),[255,110,117]);y+=35;
+    doc.setTextColor(230,234,237);doc.setFont("helvetica","bold");doc.setFontSize(12);doc.text("Movimientos de "+reportKey,16,y);y+=7;
     const head=["Fecha","Tipo","Categoría / descripción","Cuenta","Importe"];
     const widths=[24,21,67,38,28];let x=16;
     doc.setFillColor(29,35,39);doc.rect(16,y-4,178,8,"F");doc.setFontSize(7);doc.setTextColor(201,210,216);
     head.forEach((h,i)=>{doc.text(h,x+2,y+1);x+=widths[i];});y+=9;
-    const rows=displayTx.slice(0,22);
+    const rows=displayTx.filter(t=>String(t.transaction_date).slice(0,7)===reportKey).slice(0,22);
     for(const t of rows){
       if(y>267){doc.addPage();doc.setFillColor(9,11,13);doc.rect(0,0,pageWidth,297,"F");y=18;}
       x=16;doc.setFontSize(7);doc.setTextColor(176,184,190);
       const kind=t.transfer_group?"Traspaso":t.type==="income"?"Ingreso":"Gasto";
-      const values=[dateFmt(t.transaction_date),kind,(t.category+" · "+(t.description||"")).slice(0,43),t.account_name||"Sin cuenta",fmt(Number(t.amount))];
-      values.forEach((v,i)=>{const max=i===2?40:25;doc.text(doc.splitTextToSize(v,max)[0]||"",x+2,y);x+=widths[i];});
+      const values=[dateFmt(t.transaction_date),kind,(t.category+" · "+(t.description||"")).slice(0,43),t.account_name||"Sin cuenta"];
+      const rowWidths=[24,21,67,38];
+      values.forEach((v,i)=>{const max=i===2?40:25;doc.text(doc.splitTextToSize(v,max)[0]||"",x+2,y);x+=rowWidths[i];});
       if(t.type==="income"&&!t.transfer_group)doc.setTextColor(183,243,90);else if(t.type==="expense"&&!t.transfer_group)doc.setTextColor(255,110,117);else doc.setTextColor(115,183,255);
       doc.text(fmt(Number(t.amount)),188,y,{align:"right"});y+=7;
       doc.setDrawColor(39,45,49);doc.line(16,y-3,194,y-3);
