@@ -60,42 +60,20 @@ export async function ensureIdentitySchema() {
   if (!globalIdentity.demianIdentityReady) {
     globalIdentity.demianIdentityReady = (async () => {
       const db = identityDb();
-      await db.query(
-        "CREATE TABLE IF NOT EXISTS public.demian_users (" +
-        "id uuid PRIMARY KEY, name text NOT NULL, email text NOT NULL, password_hash text NOT NULL, " +
-        "role text NOT NULL DEFAULT 'user', flux_user_id text NULL, created_at timestamptz NOT NULL DEFAULT NOW())"
-      );
-      await db.query("ALTER TABLE public.demian_users ADD COLUMN IF NOT EXISTS role text NOT NULL DEFAULT 'user'");
-      await db.query("ALTER TABLE public.demian_users ADD COLUMN IF NOT EXISTS flux_user_id text");
-      await db.query("CREATE UNIQUE INDEX IF NOT EXISTS demian_users_email_lower_key ON public.demian_users (LOWER(email))");
-      await db.query("ALTER TABLE public.demian_items ADD COLUMN IF NOT EXISTS user_id uuid");
-      await db.query("ALTER TABLE public.demian_wellness_logs ADD COLUMN IF NOT EXISTS user_id uuid");
-      await db.query(
-        "INSERT INTO public.demian_users(id,name,email,password_hash,role,flux_user_id) VALUES($1,$2,$3,$4,'legacy',$5) " +
-        "ON CONFLICT(id) DO UPDATE SET flux_user_id=COALESCE(public.demian_users.flux_user_id,EXCLUDED.flux_user_id)",
-        [LEGACY_USER_ID, "Mi espacio anterior", "legacy-owner@demian.local", "disabled$legacy", process.env.DEMIAN_FLUX_USER_ID || null]
-      );
-      await db.query("UPDATE public.demian_items SET user_id=$1 WHERE user_id IS NULL", [LEGACY_USER_ID]);
-      await db.query("UPDATE public.demian_wellness_logs SET user_id=$1 WHERE user_id IS NULL", [LEGACY_USER_ID]);
-      await db.query("ALTER TABLE public.demian_items ALTER COLUMN user_id SET NOT NULL");
-      await db.query("ALTER TABLE public.demian_wellness_logs ALTER COLUMN user_id SET NOT NULL");
-      await db.query("ALTER TABLE public.demian_wellness_logs DROP CONSTRAINT IF EXISTS demian_wellness_logs_log_date_key");
-      await db.query("CREATE INDEX IF NOT EXISTS demian_items_user_created_idx ON public.demian_items(user_id,created_at DESC)");
-      await db.query("CREATE UNIQUE INDEX IF NOT EXISTS demian_wellness_user_date_key ON public.demian_wellness_logs(user_id,log_date)");
-      await db.query("CREATE INDEX IF NOT EXISTS demian_wellness_user_date_idx ON public.demian_wellness_logs(user_id,log_date DESC)");
-      await db.query(
-        "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='demian_items_user_id_fkey') THEN " +
-        "ALTER TABLE public.demian_items ADD CONSTRAINT demian_items_user_id_fkey FOREIGN KEY(user_id) REFERENCES public.demian_users(id) ON DELETE CASCADE; END IF; END $$"
-      );
-      await db.query(
-        "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='demian_wellness_logs_user_id_fkey') THEN " +
-        "ALTER TABLE public.demian_wellness_logs ADD CONSTRAINT demian_wellness_logs_user_id_fkey FOREIGN KEY(user_id) REFERENCES public.demian_users(id) ON DELETE CASCADE; END IF; END $$"
-      );
-      await db.query(
-        "CREATE TABLE IF NOT EXISTS public.demian_auth_rate_limits (" +
-        "key_hash text PRIMARY KEY CHECK(length(key_hash)=64), attempt_count integer NOT NULL DEFAULT 0 CHECK(attempt_count BETWEEN 0 AND 10000), " +
-        "window_started_at timestamptz NOT NULL DEFAULT NOW(), blocked_until timestamptz NULL, updated_at timestamptz NOT NULL DEFAULT NOW())"
-      );
+      // Schema changes are installed by the database owner during deployment, never at runtime.
+      await Promise.all([
+        db.query("SELECT id,name,email,password_hash,role,flux_user_id FROM public.demian_users LIMIT 0"),
+        db.query("SELECT id,user_id FROM public.demian_items LIMIT 0"),
+        db.query("SELECT id,user_id FROM public.demian_wellness_logs LIMIT 0"),
+        db.query("SELECT key_hash,attempt_count,window_started_at,blocked_until FROM public.demian_auth_rate_limits LIMIT 0")
+      ]);
+      const legacyFluxId = process.env.DEMIAN_FLUX_USER_ID;
+      if (legacyFluxId) {
+        await db.query(
+          "UPDATE public.demian_users SET flux_user_id=COALESCE(flux_user_id,$2) WHERE id=$1",
+          [LEGACY_USER_ID, legacyFluxId]
+        );
+      }
     })().catch((error) => {
       globalIdentity.demianIdentityReady = undefined;
       throw error;
