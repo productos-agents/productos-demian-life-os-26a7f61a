@@ -24,7 +24,7 @@ function decodePayload(encoded: string): { sub: string; name: string; email: str
 }
 export async function proxy(req: NextRequest) {
   const path = req.nextUrl.pathname;
-  const isPublic = path === "/login" || path === "/register" || path === "/manifest.webmanifest" || path.startsWith("/api/auth");
+  const isPublic = path === "/login" || path === "/register" || path === "/manifest.webmanifest" || path === "/jdo-services-logo.webp" || path.startsWith("/api/auth");
   if (isPublic) return NextResponse.next();
 
   const secret = process.env.DEMIAN_SESSION_SECRET || process.env.DEMIAN_DATABASE_URL || process.env.DEMIAN_ACCESS_PASSWORD;
