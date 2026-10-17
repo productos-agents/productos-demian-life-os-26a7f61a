@@ -248,7 +248,7 @@ export default function Home() {
           </section>
         </>}
         {notice&&section==="overview"&&<div className="notice" role="status">{notice}<button onClick={()=>setNotice("")}>×</button></div>}
-        <footer className="footer"><span>DEMian LIFE OS <i>V0.1 · EN DESARROLLO</i></span><span>Hecho para ayudarte a avanzar, un día a la vez.</span></footer>
+        <footer className="footer developerSignature"><span className="signatureCaption">DEMian V1.0 · desarrollado por J D O SERVICES</span><div className="signatureLogo" role="img" aria-label="J D O Services"><span className="signatureMonogram">JDO</span><span className="signatureDivider"/><span className="signatureWord">SERVICES</span></div></footer>
       </div>
     </section>
   </main>;
