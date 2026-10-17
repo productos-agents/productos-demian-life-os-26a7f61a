@@ -76,7 +76,7 @@ export default function WellnessModule(){
     setDraft(existing?{date,sleepHours:existing.sleep_hours==null?"":String(existing.sleep_hours),waterGlasses:existing.water_glasses==null?"":String(existing.water_glasses),activityMinutes:existing.activity_minutes==null?"":String(existing.activity_minutes),mood:existing.mood==null?"":String(existing.mood),weightKg:existing.weight_kg==null?"":String(existing.weight_kg),notes:existing.notes||""}:emptyForm(date));
     setMessage("");setError("");
   }
-  async function createHabit(e:FormEvent){
+  async function deleteCheckin(){\n    if(!logs.some(l=>l.log_date===draft.date))return;\n    if(!window.confirm("¿Eliminar el registro de bienestar del "+fmtDate(draft.date)+"?"))return;\n    try{const r=await fetch("/api/wellness?date="+encodeURIComponent(draft.date),{method:"DELETE"});const j=await r.json();if(!r.ok||!j.ok)throw new Error(j.error||"No se pudo eliminar.");setLogs(prev=>prev.filter(l=>l.log_date!==draft.date));setDraft(emptyForm(draft.date));setMessage("Registro de bienestar eliminado.");setError("");}\n    catch(e){setError(e instanceof Error?e.message:"No se pudo eliminar el registro.");}\n  }\n  async function createHabit(e:FormEvent){
     e.preventDefault();if(!habitTitle.trim())return;setSavingHabit(true);setError("");setMessage("");
     try{
       const r=await fetch("/api/data",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:"habit",title:habitTitle.trim(),details:habitDetails,frequency:habitFrequency,logDate:todayLocal()})});
@@ -112,7 +112,7 @@ export default function WellnessModule(){
       </div>
       <div className="wellnessLayout">
         <form className="wellnessPanel wellnessForm" onSubmit={saveCheckin}>
-          <div className="wellnessPanelHead"><div><h3>Tu check-in</h3><p>Un registro por fecha; puedes editarlo después.</p></div><button type="button" className="wellnessRefresh" onClick={()=>void refresh()} title="Actualizar datos">↻</button></div>
+          <div className="wellnessPanelHead"><div><h3>Tu check-in</h3><p>Un registro por fecha; puedes editarlo después.</p></div><div className="wellnessHeadActions"><button type="button" className="wellnessRefresh" onClick={()=>void refresh()} title="Actualizar datos">↻</button><button type="button" className="wellnessDeleteCheckin" disabled={!logs.some(l=>l.log_date===draft.date)} onClick={()=>void deleteCheckin()}>Eliminar</button></div></div>
           <label className="wellnessField">Fecha del registro<input type="date" max={todayLocal()} required value={draft.date} onChange={e=>chooseDate(e.target.value)}/></label>
           <div className="wellnessInputGrid">
             <label className="wellnessField">Horas de sueño<input type="number" min="0" max="24" step=".25" value={draft.sleepHours} onChange={e=>setDraft({...draft,sleepHours:e.target.value})} placeholder="Ej. 7.5"/></label>
