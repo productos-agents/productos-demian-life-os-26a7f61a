@@ -63,7 +63,7 @@ async function getData(uid: string) {
   const p = db();
   const [profile, transactions, accounts, categories, budgets, goals, recurring, prefs] = await Promise.all([
     p.query("SELECT id,name,email FROM public.flux_users WHERE id=$1 LIMIT 1", [uid]),
-    p.query(`SELECT t.id,t.type,t.category,t.description,t.amount::float8 AS amount,t.transaction_date,t.created_at,
+    p.query(`SELECT t.id,t.type,t.category,t.description,t.amount::float8 AS amount,t.transaction_date::text AS transaction_date,t.created_at,
       t.account_id,t.transfer_to_account_id,t.transfer_group,a.name AS account_name,ta.name AS transfer_to_account_name
       FROM public.flux_transactions t
       LEFT JOIN public.flux_accounts a ON a.id=t.account_id AND a.user_id=t.user_id
@@ -75,9 +75,9 @@ async function getData(uid: string) {
       LEFT JOIN public.flux_transactions t ON t.account_id=a.id AND t.user_id=a.user_id
       WHERE a.user_id=$1 GROUP BY a.id ORDER BY a.created_at ASC`, [uid]),
     p.query("SELECT id,name,type,color,icon,is_default FROM public.flux_categories WHERE user_id=$1 ORDER BY type,name", [uid]),
-    p.query("SELECT id,name,category,amount_limit::float8 AS amount_limit,period,starts_on,is_active,created_at FROM public.flux_budgets WHERE user_id=$1 ORDER BY is_active DESC,created_at DESC", [uid]),
-    p.query("SELECT id,name,target_amount::float8 AS target_amount,current_amount::float8 AS current_amount,target_date,status,created_at FROM public.flux_savings_goals WHERE user_id=$1 ORDER BY CASE status WHEN 'active' THEN 0 WHEN 'paused' THEN 1 ELSE 2 END,target_date NULLS LAST", [uid]),
-    p.query("SELECT id,name,type,category,description,amount::float8 AS amount,frequency,next_date,account_id,is_active,created_at FROM public.flux_recurring_transactions WHERE user_id=$1 ORDER BY is_active DESC,next_date ASC", [uid]),
+    p.query("SELECT id,name,category,amount_limit::float8 AS amount_limit,period,starts_on::text AS starts_on,is_active,created_at FROM public.flux_budgets WHERE user_id=$1 ORDER BY is_active DESC,created_at DESC", [uid]),
+    p.query("SELECT id,name,target_amount::float8 AS target_amount,current_amount::float8 AS current_amount,target_date::text AS target_date,status,created_at FROM public.flux_savings_goals WHERE user_id=$1 ORDER BY CASE status WHEN 'active' THEN 0 WHEN 'paused' THEN 1 ELSE 2 END,target_date NULLS LAST", [uid]),
+    p.query("SELECT id,name,type,category,description,amount::float8 AS amount,frequency,next_date::text AS next_date,account_id,is_active,created_at FROM public.flux_recurring_transactions WHERE user_id=$1 ORDER BY is_active DESC,next_date ASC", [uid]),
     p.query("SELECT preferences FROM public.flux_preferences WHERE user_id=$1", [uid])
   ]);
   return {
