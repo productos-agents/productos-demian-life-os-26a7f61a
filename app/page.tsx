@@ -18,6 +18,79 @@ const sections: {id:Section; label:string; short:string; glyph:string}[] = [
 ];
 const today = () => { const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
 const money = (n:number) => new Intl.NumberFormat("es-MX",{style:"currency",currency:"MXN",maximumFractionDigits:2}).format(n);
+
+// Frases compartidas por todos los usuarios. La fecha se calcula con la zona horaria
+// de Ciudad de México para que todos vean la misma frase durante el mismo día.
+const dailyQuotes = [
+  {text:"No necesitas tener todo resuelto. Solo necesitas saber cuál es el siguiente paso.",tagline:"UNA COSA A LA VEZ"},
+  {text:"No subestimes lo que puedes construir con pequeños esfuerzos repetidos.",tagline:"LA CONSTANCIA CUENTA"},
+  {text:"Avanzar despacio también es avanzar. Lo importante es no abandonarte.",tagline:"SIGUE A TU RITMO"},
+  {text:"Hoy no tienes que hacerlo todo; elige lo importante y empieza por ahí.",tagline:"UN PASO CONSCIENTE"},
+  {text:"La disciplina es cumplir contigo incluso cuando la motivación no aparece.",tagline:"CUMPLE CONTIGO"},
+  {text:"Cada día es una nueva oportunidad para acercarte a la vida que quieres.",tagline:"VUELVE A EMPEZAR"},
+  {text:"No compares tu capítulo uno con el capítulo veinte de alguien más.",tagline:"TU CAMINO ES TUYO"},
+  {text:"Lo que haces con frecuencia termina construyendo tu futuro.",tagline:"LOS HÁBITOS SUMAN"},
+  {text:"Puedes cambiar de rumbo sin negar todo lo que ya has recorrido.",tagline:"AJUSTAR TAMBIÉN ES CRECER"},
+  {text:"Una decisión pequeña y valiente puede cambiar el rumbo de tu día.",tagline:"EMPIEZA CON LO POSIBLE"},
+  {text:"Descansar también forma parte del progreso. No tienes que ganarte una pausa.",tagline:"RESPETA TU ENERGÍA"},
+  {text:"Concéntrate en lo que sí puedes hacer hoy; lo demás puede esperar.",tagline:"VUELVE AL PRESENTE"},
+  {text:"No necesitas sentirte listo para dar el primer paso.",tagline:"EMPIEZA AUN CON DUDAS"},
+  {text:"El progreso real a veces es silencioso: seguir intentando ya cuenta.",tagline:"RECONOCE TU AVANCE"},
+  {text:"Haz espacio para la vida que quieres con las decisiones que tomas hoy.",tagline:"ELIGE CON INTENCIÓN"},
+  {text:"Equivocarte no borra tu avance; te da información para hacerlo mejor.",tagline:"APRENDE Y CONTINÚA"},
+  {text:"La claridad llega más fácil cuando empiezas a ordenar una cosa a la vez.",tagline:"ORDENA LO QUE PUEDES"},
+  {text:"No tienes que resolverlo todo en un día para estar haciendo las cosas bien.",tagline:"DATE TIEMPO"},
+  {text:"Tu futuro también se construye con las promesas pequeñas que te cumples.",tagline:"CONFÍA EN TUS ACCIONES"},
+  {text:"Hazlo simple, hazlo posible y vuelve a hacerlo mañana.",tagline:"LA REPETICIÓN TRANSFORMA"},
+  {text:"A veces, el mayor avance es dejar de cargar con lo que ya no te ayuda.",tagline:"SUELTA Y AVANZA"},
+  {text:"Cuida tu atención: aquello a lo que dedicas tus días termina creciendo.",tagline:"PROTEGE LO IMPORTANTE"},
+  {text:"No necesitas un día perfecto para tener un día valioso.",tagline:"HAZ LO MEJOR POSIBLE"},
+  {text:"La confianza también se construye actuando antes de tener todas las respuestas.",tagline:"DA EL PRIMER PASO"},
+  {text:"Lo importante no es nunca caer; es aprender a regresar a lo que te hace bien.",tagline:"REGRESA A TI"},
+  {text:"Cuando todo parezca demasiado, reduce el problema al siguiente paso.",tagline:"HAZLO MÁS PEQUEÑO"},
+  {text:"Tu bienestar merece un lugar en tu agenda, no solo el tiempo que sobra.",tagline:"TÚ TAMBIÉN IMPORTAS"},
+  {text:"La vida que deseas necesita decisiones pequeñas, no solo grandes planes.",tagline:"CONVIERTE INTENCIÓN EN ACCIÓN"},
+  {text:"Puedes sentir miedo y aun así elegir avanzar.",tagline:"VALENTÍA ES CONTINUAR"},
+  {text:"No confundas una pausa con rendirte. A veces necesitas recuperar fuerzas.",tagline:"RESPIRA Y RETOMA"},
+  {text:"Celebra el avance que antes te parecía imposible.",tagline:"MIRA LO QUE HAS LOGRADO"},
+  {text:"Menos perfección, más práctica. Así se construyen las cosas que duran.",tagline:"HECHO ES MEJOR QUE PERFECTO"},
+  {text:"No gastes toda tu energía pensando en empezar; usa un poco para comenzar.",tagline:"PASA A LA ACCIÓN"},
+  {text:"Ser constante no significa hacerlo siempre perfecto, sino volver a intentarlo.",tagline:"VUELVE CUANTAS VECES HAGA FALTA"},
+  {text:"Dale a tus metas un lugar en tu día, aunque solo sean diez minutos.",tagline:"PROTEGE TU PROPÓSITO"},
+  {text:"Tienes permiso de aprender mientras avanzas.",tagline:"NO TIENES QUE SABERLO TODO"},
+  {text:"Agradece lo que te sostiene y trabaja por aquello que quieres cambiar.",tagline:"GRATITUD Y ACCIÓN"},
+  {text:"Un límite saludable también es una forma de cuidar lo que importa.",tagline:"CUIDA TU PAZ"},
+  {text:"No todo merece tu respuesta inmediata; elige con calma dónde poner tu energía.",tagline:"RESPONDE CON INTENCIÓN"},
+  {text:"Los días difíciles no cuentan toda tu historia.",tagline:"ESTO TAMBIÉN PASARÁ"},
+  {text:"La mejor rutina es la que puedes sostener en la vida que realmente tienes.",tagline:"HAZLO SOSTENIBLE"},
+  {text:"Tu valor no depende de cuánto hayas producido hoy.",tagline:"ERES MÁS QUE TUS PENDIENTES"},
+  {text:"Haz hoy algo que le facilite el camino a tu yo de mañana.",tagline:"REGÁLATE UN MEJOR MAÑANA"},
+  {text:"Los cambios duraderos comienzan cuando eliges volver a intentarlo.",tagline:"EMPEZAR OTRA VEZ ES PODER"},
+  {text:"Puedes construir orden sin exigirte tener una vida perfecta.",tagline:"ORDEN, NO PERFECCIÓN"},
+  {text:"A veces, lo más productivo que puedes hacer es detenerte y pensar con claridad.",tagline:"PAUSA PARA ELEGIR MEJOR"},
+  {text:"Cada pequeña acción alineada con tus valores fortalece la vida que estás creando.",tagline:"VIVE DE ACUERDO CON LO TUYO"},
+  {text:"No tienes que ver todo el camino; basta con iluminar el siguiente tramo.",tagline:"DA EL SIGUIENTE PASO"},
+  {text:"Haz menos cosas con más intención y deja espacio para lo que de verdad importa.",tagline:"PRIORIZA CON CALMA"},
+  {text:"La paciencia contigo mismo también es una forma de compromiso.",tagline:"TRÁTATE CON RESPETO"},
+  {text:"Hoy puede ser sencillo y aun así contar como un buen comienzo.",tagline:"EMPIEZA DONDE ESTÁS"},
+  {text:"Los resultados tardan; el esfuerzo de hoy sigue teniendo valor.",tagline:"CONFÍA EN EL PROCESO"},
+  {text:"Tu atención es limitada: entrégasela a aquello que quieres hacer crecer.",tagline:"ALIMENTA LO IMPORTANTE"},
+  {text:"Haz una cosa pendiente, cuida una necesidad y date crédito por ambas.",tagline:"AVANCE Y BIENESTAR"},
+  {text:"No tienes que demostrar nada a todos. Construye una vida que tenga sentido para ti.",tagline:"ELIGE TU PROPIA MEDIDA"},
+  {text:"La organización no busca controlarlo todo; busca darte más espacio para vivir.",tagline:"ORDEN PARA VIVIR MEJOR"},
+  {text:"Cada vez que retomas un buen hábito, refuerzas la persona que quieres ser.",tagline:"REAFIRMA TU CAMINO"},
+  {text:"Permítete comenzar de nuevo sin castigarte por lo que pasó ayer.",tagline:"HOY ES UNA NUEVA OPORTUNIDAD"},
+  {text:"No esperes a tener más tiempo: empieza por darle prioridad a lo que importa.",tagline:"HAZLE ESPACIO"},
+  {text:"Elige el siguiente paso que te acerque, aunque sea un poco, a tu tranquilidad.",tagline:"AVANZA HACIA LA CALMA"},
+  {text:"Un día a la vez no es poco; es una manera real de construir algo grande.",tagline:"UN DÍA A LA VEZ"}
+];
+const getDailyQuote = () => {
+  const parts = new Intl.DateTimeFormat("en-US",{timeZone:"America/Mexico_City",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date());
+  const dateParts = Object.fromEntries(parts.map(part=>[part.type,part.value]));
+  const dateKey = `${dateParts.year}-${dateParts.month}-${dateParts.day}`;
+  const dayNumber = Math.floor(Date.parse(dateKey+"T00:00:00Z")/86400000);
+  return dailyQuotes[((dayNumber%dailyQuotes.length)+dailyQuotes.length)%dailyQuotes.length];
+};
 export default function Home() {
   const [items,setItems] = useState<Item[]>([]);
   const [userName,setUserName] = useState("Mi espacio");
@@ -157,7 +230,7 @@ export default function Home() {
             </section>
             <section className="panel moneyPanel"><div className="panelHead"><div><h3>Tu dinero</h3><p>{new Intl.DateTimeFormat("es-MX",{month:"long",year:"numeric"}).format(new Date())} · FLUX</p></div><button className="textBtn" onClick={()=>setSection("transaction")}>Ver finanzas ↗</button></div><div className="balanceLabel">BALANCE NETO DE CUENTAS</div><div className="balance">{financeConnection==="connected"?money(financeBalance):"—"}</div><div className="moneyBars"><div><span><i className="incomeDot"></i>Ingresos del mes</span><b>{financeConnection==="connected"?money(income):"—"}</b></div><div className="bar"><i style={{width:(income+expenses?income/(income+expenses)*100:0)+"%"}}/></div><div><span><i className="expenseDot"></i>Gastos del mes</span><b>{financeConnection==="connected"?money(expenses):"—"}</b></div><div className="bar red"><i style={{width:(income+expenses?expenses/(income+expenses)*100:0)+"%"}}/></div></div><button className="outlineBtn" onClick={()=>{setSection("transaction");setFormOpen(true)}}>＋ Registrar movimiento</button><p className="microcopy">{financeConnection==="connected"?"Sincronizado con los movimientos y saldos de FLUX.":"Revisa la conexión con FLUX para ver los importes."}</p></section>
           </div>
-          <div className="bottomGrid"><section className="panel"><div className="panelHead"><div><h3>Pequeños hábitos, grandes cambios</h3><p>Tu espacio de bienestar</p></div><button className="textBtn" onClick={()=>setSection("habit")}>Explorar ↗</button></div><div className="habitPreview">{habits.slice(0,3).map(h=><div key={h.id}><button className={h.doneToday?"habitCheck done":"habitCheck"} onClick={()=>void toggleHabit(h)} aria-label={h.doneToday?"Desmarcar hábito":"Completar hábito"}>{h.doneToday?"✓":"✳"}</button><span><b>{h.title}</b><small>{h.frequency||"Hábito personal"}</small></span></div>)}{!habits.length&&<div className="empty compact">Tus hábitos comienzan con una acción pequeña.<button className="textBtn" onClick={()=>{setSection("habit");setFormOpen(true)}}>Añadir hábito ↗</button></div>}</div></section><section className="quoteCard"><span className="quoteMark">“</span><p>No necesitas tener todo resuelto. Solo necesitas saber cuál es el siguiente paso.</p><small>UNA COSA A LA VEZ</small><div className="quoteOrb"></div></section></div>
+          <div className="bottomGrid"><section className="panel"><div className="panelHead"><div><h3>Pequeños hábitos, grandes cambios</h3><p>Tu espacio de bienestar</p></div><button className="textBtn" onClick={()=>setSection("habit")}>Explorar ↗</button></div><div className="habitPreview">{habits.slice(0,3).map(h=><div key={h.id}><button className={h.doneToday?"habitCheck done":"habitCheck"} onClick={()=>void toggleHabit(h)} aria-label={h.doneToday?"Desmarcar hábito":"Completar hábito"}>{h.doneToday?"✓":"✳"}</button><span><b>{h.title}</b><small>{h.frequency||"Hábito personal"}</small></span></div>)}{!habits.length&&<div className="empty compact">Tus hábitos comienzan con una acción pequeña.<button className="textBtn" onClick={()=>{setSection("habit");setFormOpen(true)}}>Añadir hábito ↗</button></div>}</div></section><section className="quoteCard"><span className="quoteMark">“</span><p>{getDailyQuote().text}</p><small>{getDailyQuote().tagline}</small><div className="quoteOrb"></div></section></div>
         </>:section==="transaction"?<FinanceModule/>:section==="habit"?<WellnessModule/>:section==="note"?<KnowledgeModule/>:<><div className="moduleHero"><div><p className="eyebrow">DEMian LIFE OS / {section.toUpperCase()}</p><h1>{heading}<span>.</span></h1><p className="subhead">{section==="task"?"Organiza pendientes, fechas límite y próximos pasos.":section==="habit"?"Registra rutinas y crea consistencia con pequeños pasos.":section==="note"?"Guarda ideas, notas y referencias para encontrarlas después.":"Registra y sigue tus hábitos."}</p></div><div className="moduleActions">{section==="task"&&<button className="outlineBtn" onClick={exportCalendar}>↓ Exportar calendario .ics</button>}<button className="primaryBtn" onClick={()=>setFormOpen(v=>!v)}>＋ Nuevo registro</button></div></div>
           {formOpen&&<form className="panel createForm" onSubmit={add}><div className="panelHead"><div><h3>Nueva tarea</h3><p>Los cambios se guardan en tu base de datos.</p></div><button type="button" className="more" onClick={()=>setFormOpen(false)}>×</button></div><label>Título<input required maxLength={160} value={form.title} onChange={e=>setForm({...form,title:e.target.value})} placeholder="Ej. Llamar al proveedor"/></label>
             {section==="task"&&<label>Fecha límite<input type="date" value={form.dueDate} onChange={e=>setForm({...form,dueDate:e.target.value})}/></label>}
