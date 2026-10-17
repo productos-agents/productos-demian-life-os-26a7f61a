@@ -35,7 +35,7 @@ export default function WellnessModule(){
 
   const refresh=useCallback(async()=>{
     try{
-      const [wellnessRes,itemsRes]=await Promise.all([fetch("/api/wellness",{cache:"no-store"}),fetch("/api/data",{cache:"no-store"})]);
+      const [wellnessRes,itemsRes]=await Promise.all([fetch("/api/wellness",{cache:"no-store"}),fetch("/api/data?date="+todayLocal(),{cache:"no-store"})]);
       const [wellnessJson,itemsJson]=await Promise.all([wellnessRes.json(),itemsRes.json()]);
       if(!wellnessRes.ok||!wellnessJson.ok)throw new Error(wellnessJson.error||"No se pudo cargar el bienestar.");
       if(!itemsRes.ok||!itemsJson.ok)throw new Error(itemsJson.error||"No se pudieron cargar los hábitos.");
@@ -79,7 +79,7 @@ export default function WellnessModule(){
   async function createHabit(e:FormEvent){
     e.preventDefault();if(!habitTitle.trim())return;setSavingHabit(true);setError("");setMessage("");
     try{
-      const r=await fetch("/api/data",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:"habit",title:habitTitle.trim(),details:habitDetails,frequency:habitFrequency})});
+      const r=await fetch("/api/data",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:"habit",title:habitTitle.trim(),details:habitDetails,frequency:habitFrequency,logDate:todayLocal()})});
       const j=await r.json();if(!r.ok||!j.ok)throw new Error(j.error||"No se pudo crear el hábito.");
       setHabits(prev=>[j.item,...prev]);setHabitTitle("");setHabitDetails("");setHabitFrequency("Diario");setMessage("Hábito añadido.");
     }catch(e){setError(e instanceof Error?e.message:"No se pudo guardar el hábito.");}
@@ -87,7 +87,7 @@ export default function WellnessModule(){
   }
   async function toggleHabit(h:Habit){
     const doneToday=!h.doneToday;
-    try{const r=await fetch("/api/data",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:h.id,doneToday})});const j=await r.json();if(!r.ok||!j.ok)throw new Error(j.error||"No se pudo actualizar el hábito.");setHabits(prev=>prev.map(i=>i.id===h.id?j.item:i));}
+    try{const r=await fetch("/api/data",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:h.id,doneToday,logDate:todayLocal()})});const j=await r.json();if(!r.ok||!j.ok)throw new Error(j.error||"No se pudo actualizar el hábito.");setHabits(prev=>prev.map(i=>i.id===h.id?j.item:i));}
     catch(e){setError(e instanceof Error?e.message:"No se pudo marcar el hábito.");}
   }
   async function deleteHabit(h:Habit){
