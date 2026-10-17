@@ -33,6 +33,7 @@ export default function WellnessModule(){
   const [message,setMessage]=useState("");
   const [view,setView]=useState<"checkin"|"habits">("checkin");
   const [confirmingDelete,setConfirmingDelete]=useState(false);
+  const [pendingHabitDelete,setPendingHabitDelete]=useState<Habit|null>(null);
 
   const refresh=useCallback(async()=>{
     try{
@@ -104,9 +105,10 @@ export default function WellnessModule(){
     try{const r=await fetch("/api/data",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:h.id,doneToday,logDate:todayLocal()})});const j=await r.json();if(!r.ok||!j.ok)throw new Error(j.error||"No se pudo actualizar el hábito.");setHabits(prev=>prev.map(i=>i.id===h.id?j.item:i));}
     catch(e){setError(e instanceof Error?e.message:"No se pudo marcar el hábito.");}
   }
-  async function deleteHabit(h:Habit){
-    if(!window.confirm("¿Eliminar el hábito «"+h.title+"» y su historial de hábitos diarios?"))return;
-    try{const r=await fetch("/api/data?id="+encodeURIComponent(h.id),{method:"DELETE"});const j=await r.json();if(!r.ok||!j.ok)throw new Error(j.error||"No se pudo eliminar.");setHabits(prev=>prev.filter(i=>i.id!==h.id));setMessage("Hábito eliminado.");}
+  function deleteHabit(h:Habit){setPendingHabitDelete(h);}
+  async function confirmDeleteHabit(){
+    if(!pendingHabitDelete)return;const habit=pendingHabitDelete;
+    try{const r=await fetch("/api/data?id="+encodeURIComponent(habit.id),{method:"DELETE"});const j=await r.json();if(!r.ok||!j.ok)throw new Error(j.error||"No se pudo eliminar.");setHabits(prev=>prev.filter(i=>i.id!==habit.id));setMessage("Hábito eliminado.");setPendingHabitDelete(null);}
     catch(e){setError(e instanceof Error?e.message:"No se pudo eliminar el hábito.");}
   }
   return <div className="wellness">
@@ -149,6 +151,7 @@ export default function WellnessModule(){
       <form className="wellnessPanel wellnessForm" onSubmit={createHabit}><div className="wellnessPanelHead"><div><h3>Nuevo hábito</h3><p>Empieza pequeño y hazlo repetible.</p></div></div><label className="wellnessField">Nombre<input required maxLength={160} value={habitTitle} onChange={e=>setHabitTitle(e.target.value)} placeholder="Ej. Caminar 20 minutos"/></label><label className="wellnessField">Frecuencia<select value={habitFrequency} onChange={e=>setHabitFrequency(e.target.value)}><option>Diario</option><option>Semanal</option><option>Entre semana</option><option>Personalizado</option></select></label><label className="wellnessField">Motivo o detalle<textarea rows={3} maxLength={2000} value={habitDetails} onChange={e=>setHabitDetails(e.target.value)} placeholder="¿Por qué quieres mantener este hábito?"/></label><button className="wellnessPrimary" disabled={savingHabit}>{savingHabit?"Guardando…":"Añadir hábito"}</button></form>
       <section className="wellnessPanel"><div className="wellnessPanelHead"><div><h3>Tu lista de hábitos</h3><p>El registro diario se reinicia según la fecha local de la app.</p></div><span className="wellnessBadge">{doneToday}/{activeHabits.length} HOY</span></div>{loading?<div className="wellnessEmptyText">Cargando hábitos…</div>:activeHabits.length?<div className="wellnessHabitList">{activeHabits.map(h=><article key={h.id} className={h.doneToday?"completed":""}><button className="wellnessHabitCheck" onClick={()=>void toggleHabit(h)} aria-label={h.doneToday?"Desmarcar hoy":"Completar hoy"}>{h.doneToday?"✓":""}</button><div><b>{h.title}</b><small>{h.frequency||"Hábito personal"}{h.details?" · "+h.details:""}</small></div><span className={h.doneToday?"wellnessDoneBadge":"wellnessTodoBadge"}>{h.doneToday?"Hecho hoy":"Pendiente"}</span><button className="wellnessDeleteHabit" onClick={()=>void deleteHabit(h)} aria-label={"Eliminar "+h.title} title="Eliminar hábito">×</button></article>)}</div>:<div className="wellnessEmpty"><span>✳</span><b>Un pequeño paso puede ser el inicio.</b><p>Añade tu primer hábito en el formulario.</p></div>}</section>
     </div>}
+    {pendingHabitDelete&&<div className="wellnessConfirmBackdrop" role="presentation" onClick={()=>setPendingHabitDelete(null)}><section className="wellnessConfirmPanel" role="alertdialog" aria-modal="true" aria-labelledby="wellness-delete-habit-title" onClick={e=>e.stopPropagation()}><p className="wellnessEyebrow">CONFIRMACIÓN</p><h3 id="wellness-delete-habit-title">Eliminar hábito</h3><p>Vas a borrar “{pendingHabitDelete.title}” y su historial de marcas diarias.</p><div><button type="button" className="wellnessDeleteCancel" onClick={()=>setPendingHabitDelete(null)}>Conservar</button><button type="button" className="wellnessDeleteConfirm" disabled={savingHabit} onClick={()=>void confirmDeleteHabit()}>{savingHabit?"Eliminando…":"Eliminar hábito"}</button></div></section></div>}
     {confirmingDelete&&<div className="wellnessConfirmBackdrop" role="presentation" onClick={()=>setConfirmingDelete(false)}><section className="wellnessConfirmPanel" role="alertdialog" aria-modal="true" aria-labelledby="wellness-delete-title" onClick={e=>e.stopPropagation()}><p className="wellnessEyebrow">CONFIRMACIÓN</p><h3 id="wellness-delete-title">Eliminar registro</h3><p>Vas a borrar el check-in del {fmtDate(draft.date)}. Esta acción no se puede deshacer.</p><div><button type="button" className="wellnessDeleteCancel" onClick={()=>setConfirmingDelete(false)}>Conservar</button><button type="button" className="wellnessDeleteConfirm" disabled={saving} onClick={()=>void deleteCheckin()}>{saving?"Eliminando…":"Eliminar registro"}</button></div></section></div>}
     <p className="wellnessPrivacy">DEMian almacena los datos de bienestar que decidas registrar. Los promedios describen tus registros personales y no sustituyen una evaluación médica.</p>
   </div>;
