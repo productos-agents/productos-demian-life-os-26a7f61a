@@ -13,6 +13,6 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: "#090b0d",
     lang: "es-MX",
     categories: ["productivity", "lifestyle", "finance"],
-    icons: [{ src: "/icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any maskable" }]
+    icons: [{ src: "/icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any" }]
   };
 }
