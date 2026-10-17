@@ -1,136 +1,141 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createHash, createHmac, timingSafeEqual } from "node:crypto";
-import { Pool, PoolClient } from "pg";
+import { randomUUID, timingSafeEqual } from "node:crypto";
+import {
+  LEGACY_USER_ID, authDb, authIsBlocked, clearAuthFailures, createFinanceIdentity,
+  createSessionToken, deleteFinanceIdentity, ensureIdentitySchema, hashPassword,
+  requestSession, setSessionCookie, verifyPassword, type DemianUserRow
+} from "../../../lib/identity";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-const globalAuth = globalThis as unknown as { demianAuthPool?: Pool };
+const noCache = { "Cache-Control": "private, no-store, max-age=0" };
 
-function tokenFor(password: string) {
-  return createHmac("sha256", password).update("demian-session-v1").digest("hex");
-}
-function constantTimeEqual(a: string, b: string) {
+function sameText(a: string, b: string) {
   const left = Buffer.from(a), right = Buffer.from(b);
   return left.length === right.length && timingSafeEqual(left, right);
 }
-function authPool() {
-  if (!process.env.DEMIAN_DATABASE_URL) throw new Error("DEMIAN_DATABASE_URL no está configurada");
-  if (!globalAuth.demianAuthPool) {
-    globalAuth.demianAuthPool = new Pool({
-      connectionString: process.env.DEMIAN_DATABASE_URL,
-      ssl: { rejectUnauthorized: false },
-      max: 3,
-      connectionTimeoutMillis: 8000,
-      idleTimeoutMillis: 20000
-    });
-  }
-  return globalAuth.demianAuthPool;
+function startSession(user: { id: string; name: string; email: string; role: "user" | "legacy"; flux_user_id: string | null }) {
+  return createSessionToken({ sub: user.id, name: user.name, email: user.email, role: user.role, fid: user.flux_user_id });
 }
-function clientKey(req: NextRequest) {
-  // Prefer the platform-set direct-IP header. Store only a one-way hash, never the raw address.
-  const address = (req.headers.get("x-real-ip") ||
-    req.headers.get("x-forwarded-for")?.split(",").at(-1) ||
-    "unknown").trim().slice(0, 200);
-  return createHash("sha256").update("demian-auth-rate-v1:" + address).digest("hex");
+function publicUser(user: { id: string; name: string; email: string; role: string }) {
+  return { id: user.id, name: user.name, email: user.role === "legacy" ? null : user.email };
 }
-const noCache = { "Cache-Control": "private, no-store, max-age=0" };
-const WINDOW_MS = 15 * 60 * 1000;
-const MAX_FAILURES = 8;
 
 export async function GET(req: NextRequest) {
-  const secret = process.env.DEMIAN_ACCESS_PASSWORD;
-  if (!secret) return NextResponse.json({ ok: false, configured: false }, { status: 503, headers: noCache });
-  const actual = req.cookies.get("demian_session")?.value ?? "";
-  const authenticated = constantTimeEqual(actual, tokenFor(secret));
-  return NextResponse.json({ ok: true, authenticated }, { headers: noCache });
+  try {
+    await ensureIdentitySchema();
+    const session = requestSession(req);
+    if (!session) return NextResponse.json({ ok: true, authenticated: false, user: null }, { headers: noCache });
+    const { rows } = await (await authDb()).query(
+      "SELECT id,name,email,role FROM public.demian_users WHERE id=$1 LIMIT 1", [session.sub]
+    );
+    if (!rows[0]) return NextResponse.json({ ok: true, authenticated: false, user: null }, { headers: noCache });
+    return NextResponse.json({ ok: true, authenticated: true, user: publicUser(rows[0]) }, { headers: noCache });
+  } catch (error) {
+    console.error("DEMian auth status:", error);
+    return NextResponse.json({ ok: false, error: "No se pudo verificar la cuenta." }, { status: 503, headers: noCache });
+  }
 }
 
 export async function POST(req: NextRequest) {
-  const secret = process.env.DEMIAN_ACCESS_PASSWORD;
-  if (!secret) return NextResponse.json({ ok: false, error: "La clave de acceso no está configurada." }, { status: 503, headers: noCache });
-  let body: { password?: string };
+  let body: { action?: string; name?: string; email?: string; password?: string };
   try { body = await req.json(); }
   catch { return NextResponse.json({ ok: false, error: "Solicitud inválida." }, { status: 400, headers: noCache }); }
+  const action = String(body.action || "login");
+  const password = String(body.password || "");
+  if (password.length > 256) return NextResponse.json({ ok: false, error: "La contraseña es demasiado larga." }, { status: 400, headers: noCache });
 
-  let client: PoolClient | undefined;
   try {
-    client = await authPool().connect();
-    await client.query("BEGIN");
-    const key = clientKey(req);
-
-    // Serialize attempts per source key so concurrent requests cannot bypass the limit.
-    await client.query(
-      "INSERT INTO public.demian_auth_rate_limits(key_hash,attempt_count,window_started_at,updated_at) VALUES($1,0,NOW(),NOW()) ON CONFLICT(key_hash) DO NOTHING",
-      [key]
+    await ensureIdentitySchema();
+    const blocked = await authIsBlocked(req);
+    if (blocked > 0) return NextResponse.json(
+      { ok: false, error: "Demasiados intentos. Prueba de nuevo en unos minutos." },
+      { status: 429, headers: { ...noCache, "Retry-After": String(blocked) } }
     );
-    const { rows } = await client.query(
-      "SELECT attempt_count,window_started_at,blocked_until FROM public.demian_auth_rate_limits WHERE key_hash=$1 FOR UPDATE",
-      [key]
-    );
-    const state = rows[0] as { attempt_count: number; window_started_at: Date|string; blocked_until: Date|string|null }|undefined;
-    if (!state) throw new Error("No se pudo inicializar el limitador de acceso.");
 
-    const now = Date.now();
-    const blockedUntil = state.blocked_until ? new Date(state.blocked_until).getTime() : 0;
-    if (blockedUntil > now) {
-      await client.query("COMMIT");
-      const retry = Math.max(1, Math.ceil((blockedUntil-now)/1000));
-      return NextResponse.json({ ok: false, error: "Demasiados intentos. Espera unos minutos e inténtalo de nuevo." }, {
-        status: 429, headers: { ...noCache, "Retry-After": String(retry) }
+    if (action === "register") {
+      const name = String(body.name || "").trim().replace(/\s+/g, " ").slice(0, 80);
+      const email = String(body.email || "").trim().toLowerCase();
+      if (name.length < 2) return NextResponse.json({ ok: false, error: "Escribe tu nombre (mínimo 2 caracteres)." }, { status: 400, headers: noCache });
+      if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return NextResponse.json({ ok: false, error: "Escribe un correo electrónico válido." }, { status: 400, headers: noCache });
+      }
+      if (password.length < 10) return NextResponse.json({ ok: false, error: "Usa una contraseña de al menos 10 caracteres." }, { status: 400, headers: noCache });
+      const db = await authDb();
+      const duplicate = await db.query("SELECT 1 FROM public.demian_users WHERE LOWER(email)=LOWER($1) LIMIT 1", [email]);
+      if (duplicate.rows.length) return NextResponse.json({ ok: false, error: "Ya existe una cuenta con ese correo. Inicia sesión." }, { status: 409, headers: noCache });
+
+      const id = randomUUID();
+      const passwordHash = await hashPassword(password);
+      const created = await db.query(
+        "INSERT INTO public.demian_users(id,name,email,password_hash,role) VALUES($1,$2,$3,$4,'user') RETURNING id,name,email,role,flux_user_id",
+        [id, name, email, passwordHash]
+      );
+      try {
+        await createFinanceIdentity({ id, name, email });
+        await db.query("UPDATE public.demian_users SET flux_user_id=$2 WHERE id=$1", [id, id]);
+        created.rows[0].flux_user_id = id;
+      } catch (error) {
+        await db.query("DELETE FROM public.demian_users WHERE id=$1", [id]);
+        await deleteFinanceIdentity(id);
+        console.error("DEMian finance account bootstrap failed:", error);
+        return NextResponse.json({ ok: false, error: "No se pudo preparar tu espacio financiero. Inténtalo de nuevo más tarde." }, { status: 503, headers: noCache });
+      }
+      await clearAuthFailures(req);
+      const res = NextResponse.json({ ok: true, user: publicUser(created.rows[0]) }, { headers: noCache });
+      setSessionCookie(res, startSession(created.rows[0]));
+      return res;
+    }
+
+    if (action === "legacy") {
+      const oldKey = process.env.DEMIAN_ACCESS_PASSWORD;
+      if (!oldKey) return NextResponse.json({ ok: false, error: "El acceso anterior no está habilitado." }, { status: 403, headers: noCache });
+      if (!sameText(password, oldKey)) {
+        await authDb();
+        await import("../../../lib/identity").then(m => m.recordAuthFailure(req));
+        const retry = await authIsBlocked(req);
+        return NextResponse.json({ ok: false, error: "La clave anterior no es correcta." }, {
+          status: retry ? 429 : 401, headers: { ...noCache, ...(retry ? { "Retry-After": String(retry) } : {}) }
+        });
+      }
+      const db = await authDb();
+      const result = await db.query(
+        "SELECT id,name,email,role,flux_user_id FROM public.demian_users WHERE id=$1 LIMIT 1", [LEGACY_USER_ID]
+      );
+      if (!result.rows[0]) return NextResponse.json({ ok: false, error: "No se encontró el espacio anterior." }, { status: 503, headers: noCache });
+      await clearAuthFailures(req);
+      const res = NextResponse.json({ ok: true, user: publicUser(result.rows[0]) }, { headers: noCache });
+      setSessionCookie(res, startSession(result.rows[0]));
+      return res;
+    }
+
+    const email = String(body.email || "").trim().toLowerCase();
+    if (!email || !password) return NextResponse.json({ ok: false, error: "Escribe tu correo y contraseña." }, { status: 400, headers: noCache });
+    const db = await authDb();
+    const result = await db.query(
+      "SELECT id,name,email,password_hash,role,flux_user_id FROM public.demian_users WHERE LOWER(email)=LOWER($1) AND role='user' LIMIT 1",
+      [email]
+    );
+    const user = result.rows[0] as DemianUserRow | undefined;
+    if (!user || !(await verifyPassword(password, user.password_hash))) {
+      const { recordAuthFailure } = await import("../../../lib/identity");
+      await recordAuthFailure(req);
+      const retry = await authIsBlocked(req);
+      return NextResponse.json({ ok: false, error: "Correo o contraseña incorrectos." }, {
+        status: retry ? 429 : 401, headers: { ...noCache, ...(retry ? { "Retry-After": String(retry) } : {}) }
       });
     }
-
-    const expired = now - new Date(state.window_started_at).getTime() >= WINDOW_MS;
-    const priorFailures = expired ? 0 : Number(state.attempt_count);
-    const supplied = String(body.password ?? "");
-    const valid = constantTimeEqual(supplied, secret);
-
-    if (!valid) {
-      const failures = priorFailures + 1;
-      const blocked = failures >= MAX_FAILURES;
-      await client.query(
-        "UPDATE public.demian_auth_rate_limits SET attempt_count=$2,window_started_at=CASE WHEN $3 THEN NOW() ELSE window_started_at END,blocked_until=CASE WHEN $4 THEN NOW()+INTERVAL '15 minutes' ELSE NULL END,updated_at=NOW() WHERE key_hash=$1",
-        [key, failures, expired, blocked]
-      );
-      await client.query("COMMIT");
-      return NextResponse.json(
-        { ok: false, error: blocked ? "Límite de intentos alcanzado. El acceso queda bloqueado durante 15 minutos." : "Clave incorrecta." },
-        { status: blocked ? 429 : 401, headers: { ...noCache, ...(blocked ? { "Retry-After": "900" } : {}) } }
-      );
-    }
-
-    await client.query(
-      "UPDATE public.demian_auth_rate_limits SET attempt_count=0,window_started_at=NOW(),blocked_until=NULL,updated_at=NOW() WHERE key_hash=$1",
-      [key]
-    );
-    await client.query("COMMIT");
-    const res = NextResponse.json({ ok: true }, { headers: noCache });
-    res.cookies.set("demian_session", tokenFor(secret), {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 30
-    });
+    await clearAuthFailures(req);
+    const res = NextResponse.json({ ok: true, user: publicUser(user) }, { headers: noCache });
+    setSessionCookie(res, startSession(user));
     return res;
   } catch (error) {
-    if (client) { try { await client.query("ROLLBACK"); } catch {} }
-    console.error("DEMian auth:", error);
-    // Fail closed if the persistent rate limiter cannot be checked.
-    return NextResponse.json({ ok: false, error: "El servicio de acceso no está disponible; inténtalo de nuevo." }, { status: 503, headers: noCache });
-  } finally {
-    client?.release();
+    console.error("DEMian auth POST:", error);
+    return NextResponse.json({ ok: false, error: "El servicio de cuentas no está disponible. Inténtalo de nuevo." }, { status: 503, headers: noCache });
   }
 }
 
 export async function DELETE() {
-  const res = NextResponse.json({ ok: true }, { headers: noCache });
-  res.cookies.set("demian_session", "", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
-    path: "/",
-    maxAge: 0
-  });
-  return res;
+  const { clearSessionCookie } = await import("../../../lib/identity");
+  return clearSessionCookie(NextResponse.json({ ok: true }, { headers: noCache }));
 }
