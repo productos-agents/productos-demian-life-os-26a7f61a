@@ -252,8 +252,9 @@ export async function PATCH(req: NextRequest) {
 }
 export async function DELETE(req:NextRequest) {
   try {
-    await ready();
-    const uid=ownerId(), url=new URL(req.url), id=short(url.searchParams.get("id"),100), entity=short(url.searchParams.get("entity"),24);
+    const uid = ownerId(req);
+    await ready(uid);
+    const url=new URL(req.url), id=short(url.searchParams.get("id"),100), entity=short(url.searchParams.get("entity"),24);
     if(!id||!entity) return fail("Falta el registro que quieres eliminar.");
     const tables:Record<string,string>={transaction:"flux_transactions",account:"flux_accounts",budget:"flux_budgets",category:"flux_categories",goal:"flux_savings_goals",recurring:"flux_recurring_transactions"};
     const table=tables[entity];
