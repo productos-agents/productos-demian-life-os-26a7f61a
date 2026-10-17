@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import AppUpdater from "./components/AppUpdater";
 import "./globals.css";
 import "./flux.css";
 import "./flux-responsive.css";
@@ -22,5 +23,5 @@ export const viewport: Viewport = {
   themeColor: "#090b0d"
 };
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="es-MX"><body>{children}</body></html>;
+  return <html lang="es-MX"><body><AppUpdater />{children}</body></html>;
 }
