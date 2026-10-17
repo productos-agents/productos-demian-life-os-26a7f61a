@@ -20,6 +20,8 @@ const today = () => { const d=new Date(); return d.getFullYear()+"-"+String(d.ge
 const money = (n:number) => new Intl.NumberFormat("es-MX",{style:"currency",currency:"MXN",maximumFractionDigits:2}).format(n);
 export default function Home() {
   const [items,setItems] = useState<Item[]>([]);
+  const [userName,setUserName] = useState("Mi espacio");
+  const userInitial = userName.trim().charAt(0).toUpperCase() || "D";
   const [section,setSection] = useState<Section>("overview");
   const [loading,setLoading] = useState(true);
   const [connection,setConnection] = useState<"checking"|"connected"|"error">("checking");
@@ -33,6 +35,11 @@ export default function Home() {
   const [reminders,setReminders] = useState(false);
   const refresh = useCallback(async () => {
     setFinanceConnection("checking");
+    try {
+      const identity = await fetch("/api/auth",{cache:"no-store"});
+      const account = await identity.json();
+      if (identity.ok && account.ok && account.user?.name) setUserName(account.user.name);
+    } catch {}
     try {
       const r = await fetch("/api/data?date="+today(),{cache:"no-store"});
       const d = await r.json();
@@ -126,13 +133,13 @@ export default function Home() {
   return <main className="shell">
     <aside className="sidebar">
       <div className="brand"><div className="brandMark">D<span>·</span></div><div><b>DEMian</b><small>LIFE OS <i>V0.1</i></small></div></div>
-      <div className="workspace"><span className="avatar">J</span><div><b>Mi espacio</b><small>Sistema personal</small></div><span className="dots">•••</span></div>
+      <div className="workspace"><span className="avatar">{userInitial}</span><div><b>{userName}</b><small>Espacio personal</small></div><span className="dots">•••</span></div>
       <p className="navLabel">TU SISTEMA</p>
       <nav>{sections.map(s=><button key={s.id} onClick={()=>setSection(s.id)} className={section===s.id?"navItem active":"navItem"}><span className="navGlyph">{s.glyph}</span><span>{s.label}</span>{s.id==="task"&&openTasks.length>0&&<em>{openTasks.length}</em>}</button>)}</nav>
       <div className="sidebarBottom"><div className="connection"><span className={"statusDot "+connection}></span><div><b>{connection==="connected"?"Base de datos conectada":connection==="checking"?"Verificando conexión":"Sin conexión"}</b><small>{connection==="connected"?"PostgreSQL · Neon":connection==="checking"?"Comprobando persistencia":"Revisa configuración del servidor"}</small></div></div><button className="quietBtn" onClick={enableReminders}>♧ Permitir notificaciones</button><button className="quietBtn logoutBtn" onClick={logout}>↪ Cerrar sesión</button><small className="privacy">Tus registros se guardan en la base de datos de DEMian.</small></div>
     </aside>
     <section className="main">
-      <header className="topbar"><div className="breadcrumb">DEMian <span>/</span> {heading}</div><div className="topActions"><div className="searchBox"><span>⌕</span><input aria-label="Buscar" placeholder="Buscar en tu sistema..." value={query} onChange={e=>setQuery(e.target.value)}/><kbd>⌘ K</kbd></div><button className="roundBtn" title="Actualizar" onClick={()=>void refresh()}>↻</button><span className="avatar">J</span></div></header>
+      <header className="topbar"><div className="breadcrumb">DEMian <span>/</span> {heading}</div><div className="topActions"><div className="searchBox"><span>⌕</span><input aria-label="Buscar" placeholder="Buscar en tu sistema..." value={query} onChange={e=>setQuery(e.target.value)}/><kbd>⌘ K</kbd></div><button className="roundBtn" title="Actualizar" onClick={()=>void refresh()}>↻</button><span className="avatar">{userInitial}</span></div></header>
       <div className="content">
         {section==="overview"?<>
           <div className="welcome"><div><p className="eyebrow">{new Intl.DateTimeFormat("es-MX",{weekday:"long"}).format(new Date()).toUpperCase()} · TU CENTRO DE CONTROL</p><h1>Vamos a poner tu vida<br/><span>en orden.</span></h1><p className="subhead">Todo lo importante, en un solo lugar. Un paso a la vez.</p></div><div className="dateCard"><span>HOY</span><b>{new Intl.DateTimeFormat("es-MX",{day:"2-digit",month:"short"}).format(new Date())}</b><small>{new Intl.DateTimeFormat("es-MX",{weekday:"long"}).format(new Date())}</small></div></div>
