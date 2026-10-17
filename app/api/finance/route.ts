@@ -188,11 +188,11 @@ export async function POST(req: NextRequest) {
   } finally { client?.release(); }
 }
 export async function PATCH(req: NextRequest) {
-  const uid=process.env.DEMIAN_FLUX_USER_ID;
+  let uid: string;
+  try { uid = ownerId(req); } catch { return fail("Esta cuenta no tiene un espacio de finanzas asociado.", 403); }
   let client:PoolClient|undefined;
   try {
-    await ready();
-    if(!uid) throw new Error("Configuración de usuario FLUX incompleta.");
+    await ready(uid);
     const b=await req.json(), id=short(b.id,100), entity=short(b.entity,24);
     if(!id||!entity) return fail("Falta el registro que quieres actualizar.");
     client=await db().connect(); await client.query("BEGIN");
