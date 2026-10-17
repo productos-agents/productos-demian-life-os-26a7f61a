@@ -9,7 +9,7 @@ function constantTimeEqual(a:string,b:string) {
   let diff=0; for(let i=0;i<a.length;i++) diff |= a.charCodeAt(i)^b.charCodeAt(i);
   return diff===0;
 }
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const password=process.env.DEMIAN_ACCESS_PASSWORD;
   const isAuthRoute=req.nextUrl.pathname==="/login"||req.nextUrl.pathname.startsWith("/api/auth");
   if(isAuthRoute) return NextResponse.next();
