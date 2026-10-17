@@ -70,7 +70,7 @@ async function getData(uid: string) {
       LEFT JOIN public.flux_accounts ta ON ta.id=t.transfer_to_account_id AND ta.user_id=t.user_id
       WHERE t.user_id=$1 ORDER BY t.transaction_date DESC,t.created_at DESC LIMIT 1000`, [uid]),
     p.query(`SELECT a.id,a.name,a.account_type,a.opening_balance::float8 AS opening_balance,a.currency,a.is_active,
-      (a.opening_balance + COALESCE(SUM(CASE WHEN t.type='income' THEN t.amount WHEN t.type='expense' THEN -t.amount ELSE 0 END),0))::float8 AS balance
+      (a.opening_balance + COALESCE(SUM(CASE WHEN a.account_type='credit' AND t.type='expense' THEN t.amount WHEN a.account_type='credit' AND t.type='income' THEN -t.amount WHEN a.account_type<>'credit' AND t.type='income' THEN t.amount WHEN a.account_type<>'credit' AND t.type='expense' THEN -t.amount ELSE 0 END),0))::float8 AS balance
       FROM public.flux_accounts a
       LEFT JOIN public.flux_transactions t ON t.account_id=a.id AND t.user_id=a.user_id
       WHERE a.user_id=$1 GROUP BY a.id ORDER BY a.created_at ASC`, [uid]),
