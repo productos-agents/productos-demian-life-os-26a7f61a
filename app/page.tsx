@@ -84,16 +84,19 @@ const dailyQuotes = [
   {text:"Elige el siguiente paso que te acerque, aunque sea un poco, a tu tranquilidad.",tagline:"AVANZA HACIA LA CALMA"},
   {text:"Un día a la vez no es poco; es una manera real de construir algo grande.",tagline:"UN DÍA A LA VEZ"}
 ];
-const getDailyQuote = () => {
+const getMexicoDateKey = () => {
   const parts = new Intl.DateTimeFormat("en-US",{timeZone:"America/Mexico_City",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date());
   const dateParts = Object.fromEntries(parts.map(part=>[part.type,part.value]));
-  const dateKey = `${dateParts.year}-${dateParts.month}-${dateParts.day}`;
+  return `${dateParts.year}-${dateParts.month}-${dateParts.day}`;
+};
+const getDailyQuote = (dateKey = getMexicoDateKey()) => {
   const dayNumber = Math.floor(Date.parse(dateKey+"T00:00:00Z")/86400000);
   return dailyQuotes[((dayNumber%dailyQuotes.length)+dailyQuotes.length)%dailyQuotes.length];
 };
 export default function Home() {
   const [items,setItems] = useState<Item[]>([]);
   const [userName,setUserName] = useState("Mi espacio");
+  const [quoteDay,setQuoteDay] = useState(()=>getMexicoDateKey());
   const userInitial = userName.trim().charAt(0).toUpperCase() || "D";
   const [section,setSection] = useState<Section>("overview");
   const [loading,setLoading] = useState(true);
@@ -131,6 +134,13 @@ export default function Home() {
   useEffect(()=>{ void refresh(); },[refresh]);
   useEffect(()=>{
     if ("serviceWorker" in navigator) void navigator.serviceWorker.register("/sw.js").catch(()=>{});
+  },[]);
+  useEffect(()=>{
+    const interval=window.setInterval(()=>{
+      const next=getMexicoDateKey();
+      setQuoteDay(current=>current===next?current:next);
+    },60_000);
+    return ()=>window.clearInterval(interval);
   },[]);
   useEffect(()=>{
     if(connection!=="connected"||!("Notification" in window)||Notification.permission!=="granted") return;
@@ -230,7 +240,7 @@ export default function Home() {
             </section>
             <section className="panel moneyPanel"><div className="panelHead"><div><h3>Tu dinero</h3><p>{new Intl.DateTimeFormat("es-MX",{month:"long",year:"numeric"}).format(new Date())} · FLUX</p></div><button className="textBtn" onClick={()=>setSection("transaction")}>Ver finanzas ↗</button></div><div className="balanceLabel">BALANCE NETO DE CUENTAS</div><div className="balance">{financeConnection==="connected"?money(financeBalance):"—"}</div><div className="moneyBars"><div><span><i className="incomeDot"></i>Ingresos del mes</span><b>{financeConnection==="connected"?money(income):"—"}</b></div><div className="bar"><i style={{width:(income+expenses?income/(income+expenses)*100:0)+"%"}}/></div><div><span><i className="expenseDot"></i>Gastos del mes</span><b>{financeConnection==="connected"?money(expenses):"—"}</b></div><div className="bar red"><i style={{width:(income+expenses?expenses/(income+expenses)*100:0)+"%"}}/></div></div><button className="outlineBtn" onClick={()=>{setSection("transaction");setFormOpen(true)}}>＋ Registrar movimiento</button><p className="microcopy">{financeConnection==="connected"?"Sincronizado con los movimientos y saldos de FLUX.":"Revisa la conexión con FLUX para ver los importes."}</p></section>
           </div>
-          <div className="bottomGrid"><section className="panel"><div className="panelHead"><div><h3>Pequeños hábitos, grandes cambios</h3><p>Tu espacio de bienestar</p></div><button className="textBtn" onClick={()=>setSection("habit")}>Explorar ↗</button></div><div className="habitPreview">{habits.slice(0,3).map(h=><div key={h.id}><button className={h.doneToday?"habitCheck done":"habitCheck"} onClick={()=>void toggleHabit(h)} aria-label={h.doneToday?"Desmarcar hábito":"Completar hábito"}>{h.doneToday?"✓":"✳"}</button><span><b>{h.title}</b><small>{h.frequency||"Hábito personal"}</small></span></div>)}{!habits.length&&<div className="empty compact">Tus hábitos comienzan con una acción pequeña.<button className="textBtn" onClick={()=>{setSection("habit");setFormOpen(true)}}>Añadir hábito ↗</button></div>}</div></section><section className="quoteCard"><span className="quoteMark">“</span><p>{getDailyQuote().text}</p><small>{getDailyQuote().tagline}</small><div className="quoteOrb"></div></section></div>
+          <div className="bottomGrid"><section className="panel"><div className="panelHead"><div><h3>Pequeños hábitos, grandes cambios</h3><p>Tu espacio de bienestar</p></div><button className="textBtn" onClick={()=>setSection("habit")}>Explorar ↗</button></div><div className="habitPreview">{habits.slice(0,3).map(h=><div key={h.id}><button className={h.doneToday?"habitCheck done":"habitCheck"} onClick={()=>void toggleHabit(h)} aria-label={h.doneToday?"Desmarcar hábito":"Completar hábito"}>{h.doneToday?"✓":"✳"}</button><span><b>{h.title}</b><small>{h.frequency||"Hábito personal"}</small></span></div>)}{!habits.length&&<div className="empty compact">Tus hábitos comienzan con una acción pequeña.<button className="textBtn" onClick={()=>{setSection("habit");setFormOpen(true)}}>Añadir hábito ↗</button></div>}</div></section><section className="quoteCard"><span className="quoteMark">“</span><p>{getDailyQuote(quoteDay).text}</p><small>{getDailyQuote(quoteDay).tagline}</small><div className="quoteOrb"></div></section></div>
         </>:section==="transaction"?<FinanceModule/>:section==="habit"?<WellnessModule/>:section==="note"?<KnowledgeModule/>:<><div className="moduleHero"><div><p className="eyebrow">DEMian LIFE OS / {section.toUpperCase()}</p><h1>{heading}<span>.</span></h1><p className="subhead">{section==="task"?"Organiza pendientes, fechas límite y próximos pasos.":section==="habit"?"Registra rutinas y crea consistencia con pequeños pasos.":section==="note"?"Guarda ideas, notas y referencias para encontrarlas después.":"Registra y sigue tus hábitos."}</p></div><div className="moduleActions">{section==="task"&&<button className="outlineBtn" onClick={exportCalendar}>↓ Exportar calendario .ics</button>}<button className="primaryBtn" onClick={()=>setFormOpen(v=>!v)}>＋ Nuevo registro</button></div></div>
           {formOpen&&<form className="panel createForm" onSubmit={add}><div className="panelHead"><div><h3>Nueva tarea</h3><p>Los cambios se guardan en tu base de datos.</p></div><button type="button" className="more" onClick={()=>setFormOpen(false)}>×</button></div><label>Título<input required maxLength={160} value={form.title} onChange={e=>setForm({...form,title:e.target.value})} placeholder="Ej. Llamar al proveedor"/></label>
             {section==="task"&&<label>Fecha límite<input type="date" value={form.dueDate} onChange={e=>setForm({...form,dueDate:e.target.value})}/></label>}
