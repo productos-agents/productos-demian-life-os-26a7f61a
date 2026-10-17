@@ -102,11 +102,11 @@ export async function GET(req: NextRequest) {
   }
 }
 export async function POST(req: NextRequest) {
-  const uid = process.env.DEMIAN_FLUX_USER_ID;
+  let uid: string;
+  try { uid = ownerId(req); } catch { return fail("Esta cuenta no tiene un espacio de finanzas asociado.", 403); }
   let client: PoolClient | undefined;
   try {
-    await ready();
-    if (!uid) throw new Error("Configuración de usuario FLUX incompleta.");
+    await ready(uid);
     const b = await req.json();
     const action = short(b.action, 50);
     client = await db().connect();
