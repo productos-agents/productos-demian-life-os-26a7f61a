@@ -112,6 +112,22 @@ export default function FinanceModule(){
   const currentNet=thisMonthIncome-thisMonthExpense;
   const currentRecurring=recurring.filter(r=>r.is_active);
   const dueRecurring=currentRecurring.filter(r=>r.next_date<=isoToday());
+  useEffect(()=>{
+    if(!data || typeof window === "undefined" || !("Notification" in window) || Notification.permission !== "granted") return;
+    const due=currentRecurring.filter(r=>r.next_date<=isoToday());
+    if(!due.length) return;
+    const storageKey="demian-flux-recurring-notified-v1";
+    let seen:string[]=[];
+    try { seen=JSON.parse(localStorage.getItem(storageKey)||"[]") as string[]; } catch { seen=[]; }
+    const fresh=due.filter(r=>!seen.includes(r.id+":"+String(r.next_date).slice(0,10)));
+    if(!fresh.length) return;
+    const body=fresh.slice(0,3).map(r=>r.name+" · "+fmt(Number(r.amount))).join("; ")+(fresh.length>3?" y "+(fresh.length-3)+" más":"");
+    try {
+      new Notification("DEMian · Recurrentes por registrar",{body,tag:"demian-flux-recurring"});
+      const next=[...seen,...fresh.map(r=>r.id+":"+String(r.next_date).slice(0,10))].slice(-500);
+      localStorage.setItem(storageKey,JSON.stringify(next));
+    } catch { /* Notification permission or platform policy can change between checks. */ }
+  },[data,currentRecurring]);
   const displayTx=useMemo(()=>groupTransfers(transactions),[transactions]);
   const visibleTx=useMemo(()=>displayTx.filter(t=>{
     const q=search.toLowerCase();
