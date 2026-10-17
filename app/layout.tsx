@@ -3,6 +3,7 @@ import "./globals.css";
 import "./flux.css";
 import "./flux-responsive.css";
 import "./wellness.css";
+import "./knowledge.css";
 
 export const metadata: Metadata = {
   title: "DEMian Life OS",
