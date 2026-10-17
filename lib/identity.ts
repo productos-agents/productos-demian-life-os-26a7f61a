@@ -212,10 +212,10 @@ export async function recordAuthFailure(req: NextRequest) {
   const raw = (req.headers.get("x-real-ip") || req.headers.get("x-forwarded-for")?.split(",").at(-1) || "unknown").trim().slice(0, 200);
   const key = (await import("node:crypto")).createHash("sha256").update("demian-auth-rate-v1:" + raw).digest("hex");
   await db.query(
-    "INSERT INTO public.demian_auth_rate_limits(key_hash,attempt_count,window_started_at,updated_at) VALUES($1,1,NOW(),NOW()) " +
-    "ON CONFLICT(key_hash) DO UPDATE SET attempt_count=CASE WHEN public.demian_auth_rate_limits.window_started_at<NOW()-INTERVAL '15 minutes' THEN 1 ELSE public.demian_auth_rate_limits.attempt_count+1 END, " +
-    "window_started_at=CASE WHEN public.demian_auth_rate_limits.window_started_at<NOW()-INTERVAL '15 minutes' THEN NOW() ELSE public.demian_auth_rate_limits.window_started_at END, " +
-    "blocked_until=CASE WHEN (CASE WHEN public.demian_auth_rate_limits.window_started_at<NOW()-INTERVAL '15 minutes' THEN 1 ELSE public.demian_auth_rate_limits.attempt_count+1 END)>=8 " +
+    "INSERT INTO public.demian_auth_rate_limits AS rate(key_hash,attempt_count,window_started_at,updated_at) VALUES($1,1,NOW(),NOW()) " +
+    "ON CONFLICT(key_hash) DO UPDATE SET attempt_count=CASE WHEN rate.window_started_at<NOW()-INTERVAL '15 minutes' THEN 1 ELSE rate.attempt_count+1 END, " +
+    "window_started_at=CASE WHEN rate.window_started_at<NOW()-INTERVAL '15 minutes' THEN NOW() ELSE rate.window_started_at END, " +
+    "blocked_until=CASE WHEN (CASE WHEN rate.window_started_at<NOW()-INTERVAL '15 minutes' THEN 1 ELSE rate.attempt_count+1 END)>=8 " +
     "THEN NOW()+INTERVAL '15 minutes' ELSE NULL END,updated_at=NOW()",
     [key]
   );
