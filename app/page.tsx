@@ -248,7 +248,7 @@ export default function Home() {
           </section>
         </>}
         {notice&&section==="overview"&&<div className="notice" role="status">{notice}<button onClick={()=>setNotice("")}>×</button></div>}
-        <footer className="footer developerSignature"><span className="signatureCaption">DEMian V1.0 · desarrollado por J D O SERVICES</span><div className="signatureLogo" role="img" aria-label="J D O Services"><span className="signatureMonogram">JDO</span><span className="signatureDivider"/><span className="signatureWord">SERVICES</span></div></footer>
+        <footer className="footer developerSignature"><span className="signatureCaption">DEMian V1.0 · desarrollado por J D O SERVICES</span><div className="signatureLogo"><img src="/jdo-services-logo.webp" alt="Logotipo oficial JDO Services" className="signatureLogoImage" /></div></footer>
       </div>
     </section>
   </main>;
