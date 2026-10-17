@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "./flux.css";
 import "./flux-responsive.css";
+import "./wellness.css";
 
 export const metadata: Metadata = {
   title: "DEMian Life OS",
