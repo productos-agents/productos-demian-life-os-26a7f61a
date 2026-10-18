@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { APP_VERSION } from "../lib/app-version";
 import FinanceModule from "./components/FinanceModule";
 import WellnessModule from "./components/WellnessModule";
 import KnowledgeModule from "./components/KnowledgeModule";
@@ -441,7 +442,7 @@ export default function Home() {
           </section>
         </>}
         {notice&&section==="overview"&&<div className="notice" role="status">{notice}<button onClick={()=>setNotice("")}>×</button></div>}
-        <footer className="footer developerSignature"><span className="signatureCaption">DEMIAN CORE V1.0 · DESARROLLADO POR J D O SERVICES</span><div className="signatureLogo"><img src="/jdo-services-logo.webp" alt="Logotipo oficial JDO Services" className="signatureLogoImage" /></div></footer>
+        <footer className="footer developerSignature"><span className="signatureCaption">DEMIAN CORE {APP_VERSION} · DESARROLLADO POR J D O SERVICES</span><div className="signatureLogo"><img src="/jdo-services-logo.webp" alt="Logotipo oficial JDO Services" className="signatureLogoImage" /></div></footer>
       </div>
     </section>
   </main>;

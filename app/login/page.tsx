@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { APP_VERSION } from "../../lib/app-version";
 
 type Mode = "login" | "register" | "legacy";
 export default function LoginPage() {
@@ -63,7 +64,7 @@ export default function LoginPage() {
         {mode === "legacy" && <button type="button" onClick={() => switchMode("login")}>Volver a iniciar sesión</button>}
       </div>
       <div className="loginFoot"><span className="statusDot connected" /> ACCESO PROTEGIDO · DATOS POR CUENTA</div>
-      <footer className="footer developerSignature loginDeveloperSignature"><span className="signatureCaption">DEMIAN CORE V1.0 · DESARROLLADO POR J D O SERVICES</span><div className="signatureLogo"><img src="/jdo-services-logo.webp" alt="Logotipo oficial JDO Services" className="signatureLogoImage" /></div></footer>
+      <footer className="footer developerSignature loginDeveloperSignature"><span className="signatureCaption">DEMIAN CORE {APP_VERSION} · DESARROLLADO POR J D O SERVICES</span><div className="signatureLogo"><img src="/jdo-services-logo.webp" alt="Logotipo oficial JDO Services" className="signatureLogoImage" /></div></footer>
     </section>
   </main>;
 }
