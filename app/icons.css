@@ -1,0 +1,48 @@
+/* DEMian iconography: one monochrome outline family. Green is reserved for active/selected states. */
+.lineIcon{display:inline-block;vertical-align:middle;flex:0 0 auto;stroke:currentColor;fill:none}
+.navGlyph{display:inline-flex;align-items:center;justify-content:center}
+.navGlyph .lineIcon{width:19px;height:19px}
+@media(max-width:760px){.navGlyph .lineIcon{width:20px;height:20px}}
+.statIcon,.statIcon.violet,.statIcon.green,.statIcon.blue,.statIcon.amber{display:grid;place-items:center;background:transparent!important;color:var(--silver)!important;border:1px solid #30373d;border-radius:9px}
+.statIcon .lineIcon{width:19px;height:19px}
+.empty>span{display:grid;place-items:center;color:#afb8be;font-size:initial}
+.empty>span .lineIcon{width:22px;height:22px}
+.habitCheck{display:grid;place-items:center;background:#171c20!important;color:#bac3c9!important;border:1px solid #343d43}
+.habitCheck.done{background:#1b2417!important;color:var(--green)!important;border-color:#5b773c!important}
+.searchBox>.lineIcon{flex:0 0 auto;color:#8e989f}
+.roundBtn{display:grid;place-items:center}
+.quietBtn{display:flex;align-items:center;gap:9px}
+.quietBtn .lineIcon{color:#b9c2c8}
+.wellnessMoodIcon{width:23px;height:23px}
+.wellnessMood button[aria-pressed="true"] .wellnessMoodIcon{color:var(--green)}
+.wellnessStatIcon,.wellnessStatIcon.blue,.wellnessStatIcon.cyan,.wellnessStatIcon.green,.wellnessStatIcon.amber{display:grid;place-items:center;background:#171c20!important;color:#bdc6cc!important;border:1px solid #303940;border-radius:9px}
+.wellnessStatIcon .lineIcon{width:18px;height:18px}
+.wellnessTabs button{display:inline-flex;align-items:center;gap:7px}
+.wellnessTabs button .lineIcon{color:currentColor}
+.wellnessRefresh{display:grid;place-items:center}
+.wellnessPulseHistory strong{background:#171c20!important;color:#bac3c9!important;border:1px solid #343d43!important}
+.wellnessPulseHistory strong .lineIcon{display:block}
+.wellnessHabitCheck{display:grid;place-items:center}
+.wellnessHabitCheck .lineIcon{color:currentColor}
+.routineMoodIcon{display:grid;place-items:center;line-height:1;margin:0 0 5px;color:#b7c0c6;font-size:initial}
+button[aria-pressed="true"] .routineMoodIcon{color:var(--green)}
+.fluxTabs .fluxTab{display:inline-flex;align-items:center;gap:7px}
+.fluxTabs .fluxTab>.lineIcon{flex:0 0 auto;color:currentColor}
+.fluxStatIcon,.fluxStatIcon.green,.fluxStatIcon.red,.fluxStatIcon.blue,.fluxStatIcon.silver{display:grid;place-items:center;background:#171c20!important;color:#bdc6cc!important;border:1px solid #303940;font-size:initial}
+.fluxStatIcon .lineIcon{width:19px;height:19px}
+.fluxQuickActions button>span{display:grid;place-items:center;background:#171c20!important;color:#bdc6cc!important;border:1px solid #303940}
+.fluxQuickActions button>span .lineIcon{width:18px;height:18px}
+.fluxTxIcon,.fluxTxIcon.income,.fluxTxIcon.expense,.fluxTxIcon.transfer,.fluxRecurringIcon,.fluxRecurringIcon.income,.fluxRecurringIcon.expense{display:grid;place-items:center;background:#171c20!important;color:#bdc6cc!important;border:1px solid #303940}
+.fluxTxIcon .lineIcon,.fluxRecurringIcon .lineIcon{width:17px;height:17px}
+.fluxIconButton{display:inline-grid;place-items:center}
+.fluxEmpty>span{display:grid;place-items:center;background:#171c20!important;color:#bdc6cc!important;border:1px solid #303940;font-size:initial}
+.fluxEmpty>span .lineIcon{width:22px;height:22px}
+.fluxGoalOrbit{display:grid;place-items:center;color:#bdc6cc!important}
+.knowledgeSearch>.lineIcon{flex:0 0 auto;color:#909ba2}
+.knowledgeToolbar>.knowledgeBtn{display:inline-flex;align-items:center;gap:7px}
+.knowledgeToolbar .lineIcon{color:currentColor}
+.knowledgeEmpty>span{display:grid;place-items:center;font-size:initial;color:#bdc6cc}
+.knowledgeEmpty>span .lineIcon{width:22px;height:22px}
+.knowledgePin{display:grid;place-items:center}
+.knowledgePin .lineIcon{color:#b4bdc3}
+.knowledgePin.pinned .lineIcon{color:var(--green)}
