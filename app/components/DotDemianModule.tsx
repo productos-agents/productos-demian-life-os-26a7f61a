@@ -42,7 +42,7 @@ async function extractDocumentText(file: File) {
   if (extension === "pdf") {
     const pdfjs = await import("pdfjs-dist");
     pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.mjs", import.meta.url).toString();
-    const pdf = await pdfjs.getDocument({ data: await file.arrayBuffer(), isEvalSupported: false }).promise;
+    const pdf = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise;
     const pages: string[] = [];
     const maxPages = Math.min(pdf.numPages, 60);
     for (let number = 1; number <= maxPages; number++) {
