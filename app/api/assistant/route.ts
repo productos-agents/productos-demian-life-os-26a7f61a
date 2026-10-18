@@ -283,10 +283,11 @@ function fluxDb() {
 }
 async function loadWorkspaceContext(session: { sub: string; name: string; fid: string | null }, message: string) {
   const question = message.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-  const asksTasks = /\b(tarea|tareas|pendiente|pendientes|agenda|prioridad|priorizar|organiza mi dia|que tengo que hacer|que sigue|actividades|plan de hoy|terminad|completad|he hecho)\b/.test(question);
+  const actionIntent = /\b(crea|crear|creame|creáme|agrega|agregar|anota|anotar|apunta|apuntar|guarda|guardar|registra|registrar|edita|editar|cambia|cambiar|modifica|modificar|actualiza|actualizar|completa|completar|termina|terminar|marca|marcar|mueve|mover|quita|quitar|pon|poner)\b/.test(question);
+  const asksTasks = /\b(tarea|tareas|pendiente|pendientes|agenda|prioridad|priorizar|organiza mi dia|que tengo que hacer|que sigue|actividades|plan de hoy|terminad|completad|he hecho)\b/.test(question) || (actionIntent && /\b(fecha|vencimiento|recordatorio|reporte|llamada|cita|evento|entrega)\b/.test(question));
   const asksHabits = /\b(habito|habitos|salud|rutina|bienestar|ejercicio|dormir|agua|constancia)\b/.test(question);
   const asksNotes = /\b(nota|notas|idea|ideas|segundo cerebro|apunte|apuntes|guardado|guarde|recuerdo|recuerdos|buscar en mis)\b/.test(question);
-  const asksFinance = /\b(finanza|finanzas|saldo|cuanto tengo|dinero|gasto|gastos|ingreso|ingresos|movimiento|movimientos|presupuesto|ahorro|ahorros|cuenta bancaria|deuda|deudas|tarjeta)\b/.test(question);
+  const asksFinance = /\b(finanza|finanzas|saldo|cuanto tengo|dinero|gasto|gastos|ingreso|ingresos|movimiento|movimientos|presupuesto|ahorro|ahorros|cuenta bancaria|deuda|deudas|tarjeta|registrar un gasto|registra un ingreso)\b/.test(question);
   const lines: string[] = [];
   const today = localDateKey();
   lines.push("Fecha local de referencia (Ciudad de México): " + today + ".");
@@ -302,17 +303,27 @@ async function loadWorkspaceContext(session: { sub: string; name: string; fid: s
       habitos: totals.habit || { total: 0, completed: 0, open: 0 },
       notas: totals.note || { total: 0, completed: 0, open: 0 }
     }) + ".");
+    if (actionIntent) {
+      const records = await db().query(
+        "SELECT id,kind,title,COALESCE(category,'') AS category,COALESCE(due_date::text,'') AS due_date,COALESCE(frequency,'') AS frequency,COALESCE(status,'active') AS status FROM public.demian_items WHERE user_id=$1 ORDER BY updated_at DESC LIMIT 80",
+        [session.sub]
+      );
+      lines.push("Índice de registros disponibles para las acciones solicitadas; los ids son internos y solo sirven para identificar el registro exacto: " + JSON.stringify(records.rows.map(row => ({
+        id: Number(row.id), tipo: row.kind, titulo: assistantText(row.title, 160), categoria: assistantText(row.category, 80),
+        fechaLimite: assistantText(row.due_date, 10) || null, frecuencia: assistantText(row.frequency, 50), estado: assistantText(row.status, 24)
+      }))) + ".");
+    }
   } catch {
     lines.push("Aviso de datos: no fue posible leer el resumen personal de DEMIAN CORE en esta solicitud; no inventes pendientes ni afirmes que revisaste los datos.");
   }
   if (asksTasks) {
     try {
       const result = await db().query(
-        "SELECT title,COALESCE(details,'') AS details,COALESCE(category,'') AS category,COALESCE(due_date::text,'') AS due_date,COALESCE(status,'active') AS status FROM public.demian_items WHERE user_id=$1 AND kind='task' AND COALESCE(status,'active')<>'done' ORDER BY due_date ASC NULLS LAST,created_at ASC LIMIT 30",
+        "SELECT id,title,COALESCE(details,'') AS details,COALESCE(category,'') AS category,COALESCE(due_date::text,'') AS due_date,COALESCE(status,'active') AS status FROM public.demian_items WHERE user_id=$1 AND kind='task' AND COALESCE(status,'active')<>'done' ORDER BY due_date ASC NULLS LAST,created_at ASC LIMIT 30",
         [session.sub]
       );
       lines.push("Tareas pendientes reales de esta cuenta (solo lectura): " + (result.rows.length ? JSON.stringify(result.rows.map(row => ({
-        titulo: assistantText(row.title, 160), detalle: assistantText(row.details, 240), categoria: assistantText(row.category, 80), fechaLimite: assistantText(row.due_date, 10) || "sin fecha", estado: assistantText(row.status, 30)
+        id: Number(row.id), titulo: assistantText(row.title, 160), detalle: assistantText(row.details, 240), categoria: assistantText(row.category, 80), fechaLimite: assistantText(row.due_date, 10) || "sin fecha", estado: assistantText(row.status, 30)
       }))) : "No hay tareas pendientes registradas.") + ".");
     } catch {
       lines.push("No se pudo consultar la agenda en esta solicitud. No afirmes que revisaste tareas concretas.");
@@ -321,11 +332,11 @@ async function loadWorkspaceContext(session: { sub: string; name: string; fid: s
   if (asksHabits) {
     try {
       const result = await db().query(
-        "SELECT i.title,COALESCE(i.details,'') AS details,COALESCE(i.frequency,'') AS frequency,COALESCE(i.status,'active') AS status,EXISTS(SELECT 1 FROM public.demian_habit_logs h WHERE h.habit_id=i.id AND h.log_date=$2::date) AS done_today FROM public.demian_items i WHERE i.user_id=$1 AND i.kind='habit' AND COALESCE(i.status,'active')<>'done' ORDER BY i.created_at ASC LIMIT 30",
+        "SELECT i.id,i.title,COALESCE(i.details,'') AS details,COALESCE(i.frequency,'') AS frequency,COALESCE(i.status,'active') AS status,EXISTS(SELECT 1 FROM public.demian_habit_logs h WHERE h.habit_id=i.id AND h.log_date=$2::date) AS done_today FROM public.demian_items i WHERE i.user_id=$1 AND i.kind='habit' AND COALESCE(i.status,'active')<>'done' ORDER BY i.created_at ASC LIMIT 30",
         [session.sub, today]
       );
       lines.push("Hábitos reales de esta cuenta (solo lectura): " + (result.rows.length ? JSON.stringify(result.rows.map(row => ({
-        titulo: assistantText(row.title, 160), detalle: assistantText(row.details, 200), frecuencia: assistantText(row.frequency, 50), estado: assistantText(row.status, 30), completadoHoy: row.done_today === true
+        id: Number(row.id), titulo: assistantText(row.title, 160), detalle: assistantText(row.details, 200), frecuencia: assistantText(row.frequency, 50), estado: assistantText(row.status, 30), completadoHoy: row.done_today === true
       }))) : "No hay hábitos activos registrados.") + ".");
     } catch {
       lines.push("No se pudo consultar Salud y hábitos en esta solicitud. No inventes registros.");
@@ -334,11 +345,11 @@ async function loadWorkspaceContext(session: { sub: string; name: string; fid: s
   if (asksNotes) {
     try {
       const result = await db().query(
-        "SELECT title,COALESCE(details,'') AS details,COALESCE(category,'') AS category,status,created_at FROM public.demian_items WHERE user_id=$1 AND kind='note' ORDER BY CASE WHEN status='pinned' THEN 0 ELSE 1 END,updated_at DESC LIMIT 20",
+        "SELECT id,title,COALESCE(details,'') AS details,COALESCE(category,'') AS category,status,created_at FROM public.demian_items WHERE user_id=$1 AND kind='note' ORDER BY CASE WHEN status='pinned' THEN 0 ELSE 1 END,updated_at DESC LIMIT 20",
         [session.sub]
       );
       lines.push("Notas reales de Segundo cerebro de esta cuenta (solo lectura): " + (result.rows.length ? JSON.stringify(result.rows.map(row => ({
-        titulo: assistantText(row.title, 160), contenido: assistantText(row.details, 350), categoria: assistantText(row.category, 80), fijada: row.status === "pinned"
+        id: Number(row.id), titulo: assistantText(row.title, 160), contenido: assistantText(row.details, 350), categoria: assistantText(row.category, 80), fijada: row.status === "pinned"
       }))) : "No hay notas guardadas.") + ".");
     } catch {
       lines.push("No se pudo consultar Segundo cerebro en esta solicitud. No inventes notas.");
