@@ -4,12 +4,15 @@ import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useSta
 import LineIcon from "./LineIcon";
 
 type Note = {id:string;kind:"note";title:string;details:string;category:string;status:string;pinned?:boolean;createdAt:string};
+type BrainFile = {id:string;name:string;contentType:string;size:number;summary:string;category:string;status:string;createdAt:string;noteId:string|null;noteTitle:string};
 type Draft = {title:string;details:string;category:string;pinned:boolean};
+const fileSizeLabel=(value:number)=>value<1024?value+" B":value<1024*1024?(value/1024).toFixed(1)+" KB":(value/(1024*1024)).toFixed(1)+" MB";
 const todayLocal=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");};
 const dateLabel=(value:string)=>{const date=new Date(value);return Number.isNaN(date.getTime())?"":date.toLocaleDateString("es-MX",{day:"2-digit",month:"short",year:"numeric"});};
 const blankDraft=():Draft=>({title:"",details:"",category:"General",pinned:false});
 export default function KnowledgeModule({initialSearch=""}:{initialSearch?:string}){
   const [notes,setNotes]=useState<Note[]>([]);
+  const [brainFiles,setBrainFiles]=useState<BrainFile[]>([]);
   const [hasMoreNotes,setHasMoreNotes]=useState(false);
   const [notesOffset,setNotesOffset]=useState(0);
   const [loadingMoreNotes,setLoadingMoreNotes]=useState(false);
@@ -27,11 +30,25 @@ export default function KnowledgeModule({initialSearch=""}:{initialSearch?:strin
   const fileRef=useRef<HTMLInputElement>(null);
 
   const refresh=useCallback(async()=>{
-    try{const r=await fetch("/api/data?date="+todayLocal()+"&kind=note&limit=100&offset=0",{cache:"no-store"});const j=await r.json();if(!r.ok||!j.ok)throw new Error(j.error||"No se pudieron cargar las notas.");setNotes(j.items as Note[]);setHasMoreNotes(j.hasMore===true);setNotesOffset(Number(j.nextOffset??j.items.length));setError("");}
+    try{
+      const r=await fetch("/api/data?date="+todayLocal()+"&kind=note&limit=100&offset=0",{cache:"no-store"});
+      const j=await r.json();if(!r.ok||!j.ok)throw new Error(j.error||"No se pudieron cargar las notas.");
+      setNotes(j.items as Note[]);setHasMoreNotes(j.hasMore===true);setNotesOffset(Number(j.nextOffset??j.items.length));setError("");
+      try{
+        const fr=await fetch("/api/brain/files",{cache:"no-store"});
+        const fj=await fr.json();
+        if(fr.ok&&fj.ok&&Array.isArray(fj.files))setBrainFiles(fj.files as BrainFile[]);
+      }catch{}
+    }
     catch(e){setError(e instanceof Error?e.message:"No se pudo cargar la biblioteca.");}
     finally{setLoading(false);}
   },[]);
   useEffect(()=>{void refresh();},[refresh]);
+  useEffect(()=>{
+    const handleLibraryChanged=()=>{void refresh();};
+    window.addEventListener("demian:data-changed",handleLibraryChanged);
+    return ()=>window.removeEventListener("demian:data-changed",handleLibraryChanged);
+  },[refresh]);
   useEffect(()=>{setSearch(initialSearch);},[initialSearch]);
   async function loadMoreNotes(){
     if(loadingMoreNotes||!hasMoreNotes)return;
