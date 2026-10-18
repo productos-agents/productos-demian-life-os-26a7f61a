@@ -631,7 +631,7 @@ export async function POST(req: NextRequest) {
         [conversationId, session.sub, visibleConfirmation, result.reply]
       );
       await db().query("UPDATE public.demian_assistant_conversations SET updated_at=NOW() WHERE id=$1 AND user_id=$2", [conversationId, session.sub]);
-      return json({ ok: true, conversationId, reply: result.reply, provider: "OpenRouter Free", confirmedAction: true, pendingAction: null });
+      return json({ ok: true, conversationId, reply: result.reply, provider: "OpenRouter Free", confirmedAction: true, pendingAction: null, refreshData: true });
     }
 
     await db().query(
