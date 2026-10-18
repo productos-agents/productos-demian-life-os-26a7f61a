@@ -153,6 +153,9 @@ export default function Home() {
   const [query,setQuery] = useState("");
   const [searchOpen,setSearchOpen] = useState(false);
   const [financeSearchSeed,setFinanceSearchSeed] = useState("");
+  const [globalSearchResults,setGlobalSearchResults] = useState<GlobalSearchResult[]>([]);
+  const [globalSearchLoading,setGlobalSearchLoading] = useState(false);
+  const [globalSearchError,setGlobalSearchError] = useState("");
   const [editingTask,setEditingTask] = useState<Item|null>(null);
   const [notice,setNotice] = useState("");
   const [formOpen,setFormOpen] = useState(false);
@@ -294,21 +297,33 @@ export default function Home() {
   const habits = items.filter(i=>i.kind==="habit");
   const habitsDoneToday=habits.filter(i=>i.doneToday).length;
   const notes = items.filter(i=>i.kind==="note");
-  const globalSearchResults = useMemo<GlobalSearchResult[]>(()=>{
-    const term=query.trim().toLocaleLowerCase("es");
-    if(term.length<2)return [];
-    const itemResults=items.filter(i=>[i.title,i.details,i.category].join(" ").toLocaleLowerCase("es").includes(term)).map(i=>({
-      id:"item-"+i.id,title:i.title,
-      subtitle:(i.kind==="task"?"Agenda":i.kind==="habit"?"Hábitos":i.kind==="note"?"Segundo cerebro":"Registro")+" · "+(i.category||i.frequency||"Registro personal"),
-      target:i.kind,icon:(i.kind==="task"?"calendar-clock":i.kind==="habit"?"heart-pulse":i.kind==="note"?"book-open":"wallet") as LineIconName
-    }));
-    const financeResults=(financeSnapshot?.transactions||[]).filter(t=>[t.description,t.category,t.account_name||"",t.transaction_date,String(t.amount)].join(" ").toLocaleLowerCase("es").includes(term)).map(t=>({
-      id:"finance-"+t.id,title:t.description||t.category,
-      subtitle:"Finanzas · "+t.category+" · "+money(Number(t.amount||0)),
-      target:"transaction" as Kind,icon:"wallet" as LineIconName
-    }));
-    return [...itemResults,...financeResults].slice(0,8);
-  },[query,items,financeSnapshot]);
+  useEffect(()=>{
+    const term=query.trim();
+    if(!searchOpen||term.length<2){
+      setGlobalSearchResults([]);
+      setGlobalSearchLoading(false);
+      setGlobalSearchError("");
+      return;
+    }
+    const controller=new AbortController();
+    const timer=window.setTimeout(async()=>{
+      setGlobalSearchLoading(true);
+      setGlobalSearchError("");
+      try{
+        const response=await fetch("/api/search?q="+encodeURIComponent(term),{cache:"no-store",signal:controller.signal});
+        const payload=await response.json();
+        if(!response.ok||!payload.ok)throw new Error(payload.error||"No se pudo completar la búsqueda.");
+        setGlobalSearchResults(Array.isArray(payload.results)?payload.results as GlobalSearchResult[]:[]);
+      }catch(error){
+        if(error instanceof Error&&error.name==="AbortError")return;
+        setGlobalSearchResults([]);
+        setGlobalSearchError("No se pudo completar la búsqueda. Intenta de nuevo.");
+      }finally{
+        if(!controller.signal.aborted)setGlobalSearchLoading(false);
+      }
+    },220);
+    return ()=>{window.clearTimeout(timer);controller.abort();};
+  },[query,searchOpen]);
   const openGlobalSearchResult=(result:GlobalSearchResult)=>{
     setSection(result.target);
     setSearchOpen(false);
@@ -548,7 +563,7 @@ export default function Home() {
       <div className="sidebarBottom"><div className="connection"><span className={"statusDot "+connection}></span><div><b>{connection==="connected"?"Base de datos conectada":connection==="checking"?"Verificando conexión":"Sin conexión"}</b><small>{connection==="connected"?"PostgreSQL · Neon":connection==="checking"?"Comprobando persistencia":"Revisa configuración del servidor"}</small></div></div><button className="quietBtn" onClick={()=>void enableReminders()}><LineIcon name={pushEnabled?"check-circle":"bell" as LineIconName} size={16}/>{pushEnabled?"Notificaciones activas · Desactivar":"Activar notificaciones push"}</button><button className="quietBtn logoutBtn" onClick={logout}><LineIcon name="log-out" size={16}/>Cerrar sesión</button><small className="privacy">Tus registros se guardan en la base de datos de DEMian.</small></div>
     </aside>
     <section className="main">
-      <header className="topbar"><div className="breadcrumb">DEMIAN CORE <span>/</span> {heading}</div><div className="topActions"><div className="searchBox"><LineIcon name="search" size={15}/><input aria-label="Buscar" placeholder="Buscar en tu sistema..." value={query} onFocus={()=>setSearchOpen(true)} onChange={e=>{setQuery(e.target.value);setSearchOpen(true);}} onKeyDown={e=>{if(e.key==="Escape")setSearchOpen(false);}}/><kbd>⌘ K</kbd>{query&&<button type="button" className="searchClear" aria-label="Limpiar búsqueda" onClick={()=>{setQuery("");setFinanceSearchSeed("");setSearchOpen(false);}}>×</button>}{searchOpen&&query.trim().length>=2&&<div className="globalSearchResults" role="listbox" aria-label="Resultados de búsqueda">{globalSearchResults.length?globalSearchResults.map(result=><button type="button" key={result.id} className="globalSearchResult" role="option" onClick={()=>openGlobalSearchResult(result)}><span className="globalSearchIcon"><LineIcon name={result.icon} size={16}/></span><span className="globalSearchText"><b>{result.title}</b><small>{result.subtitle}</small></span><span className="globalSearchArrow">↗</span></button>):<p className="globalSearchEmpty">No encontramos coincidencias en tus registros cargados.</p>}</div>}</div><button className="roundBtn" title="Actualizar" aria-label="Actualizar" onClick={()=>void refresh()}><LineIcon name="refresh-cw" size={16}/></button><button type="button" className={settingsOpen?"avatar settingsTrigger active":"avatar settingsTrigger"} aria-label="Abrir ajustes de apariencia" title="Ajustes de apariencia" aria-haspopup="dialog" aria-expanded={settingsOpen} onClick={()=>setSettingsOpen(true)}>{userInitial}</button></div></header>
+      <header className="topbar"><div className="breadcrumb">DEMIAN CORE <span>/</span> {heading}</div><div className="topActions"><div className="searchBox"><LineIcon name="search" size={15}/><input aria-label="Buscar" placeholder="Buscar en tu sistema..." value={query} onFocus={()=>setSearchOpen(true)} onChange={e=>{setQuery(e.target.value);setSearchOpen(true);}} onKeyDown={e=>{if(e.key==="Escape")setSearchOpen(false);}}/><kbd>⌘ K</kbd>{query&&<button type="button" className="searchClear" aria-label="Limpiar búsqueda" onClick={()=>{setQuery("");setFinanceSearchSeed("");setGlobalSearchResults([]);setSearchOpen(false);}}>×</button>}{searchOpen&&query.trim().length>=2&&<div className="globalSearchResults" role="listbox" aria-label="Resultados de búsqueda">{globalSearchLoading?<p className="globalSearchEmpty">Buscando en todo tu historial…</p>:globalSearchError?<p className="globalSearchEmpty">{globalSearchError}</p>:globalSearchResults.length?globalSearchResults.map(result=><button type="button" key={result.id} className="globalSearchResult" role="option" onClick={()=>openGlobalSearchResult(result)}><span className="globalSearchIcon"><LineIcon name={result.icon} size={16}/></span><span className="globalSearchText"><b>{result.title}</b><small>{result.subtitle}</small></span><span className="globalSearchArrow">↗</span></button>):<p className="globalSearchEmpty">No encontramos coincidencias en tu historial.</p>}</div>}</div><button className="roundBtn" title="Actualizar" aria-label="Actualizar" onClick={()=>void refresh()}><LineIcon name="refresh-cw" size={16}/></button><button type="button" className={settingsOpen?"avatar settingsTrigger active":"avatar settingsTrigger"} aria-label="Abrir ajustes de apariencia" title="Ajustes de apariencia" aria-haspopup="dialog" aria-expanded={settingsOpen} onClick={()=>setSettingsOpen(true)}>{userInitial}</button></div></header>
       <section className="pushSetup" aria-label="Configuración de notificaciones">
         <div className="pushSetupCopy"><b>{pushEnabled?"Notificaciones push activas":"Activa las notificaciones de DEMian"}</b><small>{pushEnabled?"Recibirás tus pausas de bienestar, finanzas, recordatorios y la palabra del día.":"3 pausas de bienestar, 5 pausas financieras, revisión de recordatorios y palabra motivacional cada mañana."}</small></div>
         <button className="pushSetupButton" onClick={()=>void enableReminders()}>{pushEnabled?"Desactivar":"Activar notificaciones"}</button>

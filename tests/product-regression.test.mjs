@@ -27,11 +27,16 @@ test('task edits are scoped to the authenticated owner in SQL', async () => {
   assert.match(route, /typeof b\.title === "string"/);
 });
 
-test('global search combines personal records and FLUX movements', async () => {
+test('global search queries full personal and FLUX history server-side with owner filters', async () => {
   const page = await read('../app/page.tsx');
-  assert.match(page, /const itemResults=items\.filter/);
-  assert.match(page, /const financeResults=\(financeSnapshot\?\.transactions\|\|\[\]\)\.filter/);
+  const route = await read('../app/api/search/route.ts');
+  assert.match(page, /fetch\("\/api\/search\?q="\+encodeURIComponent\(term\)/);
   assert.match(page, /openGlobalSearchResult/);
+  assert.match(route, /FROM public\.demian_items/);
+  assert.match(route, /WHERE user_id=\$1 AND \(title ILIKE/);
+  assert.match(route, /FROM public\.flux_transactions t/);
+  assert.match(route, /WHERE t\.user_id=\$1 AND \(t\.description ILIKE/);
+  assert.match(route, /LIMIT 8/);
 });
 
 test('both official in-app signatures use the shared dynamic version', async () => {
