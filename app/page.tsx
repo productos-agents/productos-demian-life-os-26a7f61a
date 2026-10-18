@@ -188,7 +188,10 @@ export default function Home() {
     let seen:string[]=[]; try{seen=JSON.parse(localStorage.getItem(key)||"[]") as string[]}catch{}
     const fresh=due.filter(i=>!seen.includes(i.id));
     if(fresh.length){
-      new Notification("DEMian · Tareas por atender",{body:fresh.slice(0,3).map(i=>i.title).join(" · ")+(fresh.length>3?" y "+(fresh.length-3)+" más":"")});
+      const body=fresh.slice(0,3).map(i=>i.title).join(" · ")+(fresh.length>3?" y "+(fresh.length-3)+" más":"");
+      void navigator.serviceWorker.ready.then(reg=>reg.showNotification("DEMian · Tareas por atender",{body,icon:"/icon-512.png",data:{url:"/?demianPrompt=reminder"}})).catch(()=>{
+        try { new Notification("DEMian · Tareas por atender",{body}); } catch {}
+      });
       localStorage.setItem(key,JSON.stringify([...seen,...fresh.map(i=>i.id)]));
     }
   },[connection,items,reminders]);
