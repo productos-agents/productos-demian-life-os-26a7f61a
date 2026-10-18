@@ -250,8 +250,41 @@ export default function Home() {
   };
   const logout = async () => { try { await fetch("/api/auth", { method: "DELETE" }); window.location.assign("/login"); } catch { setNotice("No se pudo cerrar la sesión."); } };
   const enableReminders = async () => {
-    if (!("Notification" in window)) {setNotice("Este navegador no admite notificaciones.");return;}
-    const p=await Notification.requestPermission();setReminders(p==="granted");setNotice(p==="granted"?"Permiso de notificaciones activado en este dispositivo.":"No se concedió permiso para notificaciones.");
+    try {
+      if(pushEnabled){
+        const registration=await navigator.serviceWorker.ready;
+        const subscription=await registration.pushManager.getSubscription();
+        if(subscription){
+          const response=await fetch("/api/push/subscription",{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({endpoint:subscription.endpoint})});
+          if(!response.ok)throw new Error("No se pudo desactivar este dispositivo.");
+          await subscription.unsubscribe();
+        }
+        setPushEnabled(false);setReminders(false);setNotice("Notificaciones desactivadas en este dispositivo.");return;
+      }
+      if(!("Notification" in window)||!("serviceWorker" in navigator)||!("PushManager" in window)){
+        setNotice("Este navegador no admite push. En iPhone, abre DEMian desde el icono de la pantalla de inicio.");return;
+      }
+      let permission=Notification.permission;
+      if(permission!=="granted")permission=await Notification.requestPermission();
+      if(permission!=="granted"){setNotice("No se concedió permiso de notificaciones.");return;}
+      const keyResponse=await fetch("/api/push/public-key",{cache:"no-store"});
+      const keyData=await keyResponse.json();
+      if(!keyResponse.ok||!keyData.publicKey)throw new Error(keyData.error||"Falta configurar la clave del servidor.");
+      const registration=await navigator.serviceWorker.ready;
+      const existing=await registration.pushManager.getSubscription();
+      const subscription=existing||await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:decodeVapidKey(keyData.publicKey)});
+      const saved=await fetch("/api/push/subscription",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({subscription:subscription.toJSON()})});
+      const result=await saved.json();
+      if(!saved.ok||!result.ok)throw new Error(result.error||"No se pudo registrar el dispositivo.");
+      setPushEnabled(true);setReminders(true);setNotice("Notificaciones push activadas en este dispositivo.");
+    } catch(error) { setNotice(error instanceof Error?error.message:"No se pudieron activar las notificaciones."); }
+  };
+  const saveMoodCheckin=async()=>{
+    try{
+      const response=await fetch("/api/push/mood",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({mood:routineMood,note:routineNote,timeSlot:routineSlot})});
+      const result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||"No se pudo guardar el check-in.");
+      setRoutineDialog(null);setRoutineNote("");setNotice("Gracias por registrar cómo te sientes. Tu check-in quedó guardado en DEMian.");
+    }catch(error){setNotice(error instanceof Error?error.message:"No se pudo guardar el check-in.");}
   };
   const heading=sections.find(s=>s.id===section)?.label||"DEMian";
   return <main className="shell">
