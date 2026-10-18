@@ -40,6 +40,17 @@ test('global search queries full personal and FLUX history server-side with owne
 });
 
 
+test('budget periods stay anchored and handle month-end and leap-day boundaries', async () => {
+  const { budgetPeriodStart } = await import('../lib/finance-rules.mjs');
+  assert.equal(budgetPeriodStart('2026-10-12', 'weekly', '2026-10-18'), '2026-10-12');
+  assert.equal(budgetPeriodStart('2026-10-11', 'weekly', '2026-10-18'), '2026-10-18');
+  assert.equal(budgetPeriodStart('2026-01-31', 'monthly', '2026-02-28'), '2026-02-28');
+  assert.equal(budgetPeriodStart('2024-02-29', 'yearly', '2026-10-18'), '2026-02-28');
+  const route = await read('../app/api/finance/route.ts');
+  assert.match(route, /transfer_group IS NULL/);
+  assert.match(route, /account_type='credit'.*THEN t\.amount/);
+});
+
 test('financial transaction search queries full history and uses Mexico-local date boundaries', async () => {
   const route = await read('../app/api/finance/route.ts');
   const module = await read('../app/components/FinanceModule.tsx');
