@@ -63,6 +63,26 @@ function validMonth(value: string | null | undefined): string | null {
   const month = String(value ?? "");
   return /^\d{4}-(0[1-9]|1[0-2])$/.test(month) ? month : null;
 }
+function budgetPeriodStart(startDate: string, period: string, today: string) {
+  const start = new Date(startDate.slice(0,10) + "T12:00:00Z");
+  const now = new Date(today + "T12:00:00Z");
+  if (!Number.isFinite(start.getTime()) || start > now) return startDate.slice(0,10);
+  if (period === "weekly") {
+    const elapsed = Math.floor((now.getTime()-start.getTime())/86400000);
+    start.setUTCDate(start.getUTCDate()+Math.floor(elapsed/7)*7);
+  } else if (period === "monthly") {
+    const candidate=(year:number,month:number)=>new Date(Date.UTC(year,month,Math.min(start.getUTCDate(),new Date(Date.UTC(year,month+1,0)).getUTCDate()),12));
+    let next=candidate(now.getUTCFullYear(),now.getUTCMonth());
+    if(next>now)next=candidate(now.getUTCFullYear(),now.getUTCMonth()-1);
+    start.setTime(next.getTime());
+  } else {
+    const candidate=(year:number)=>new Date(Date.UTC(year,start.getUTCMonth(),Math.min(start.getUTCDate(),new Date(Date.UTC(year,start.getUTCMonth()+1,0)).getUTCDate()),12));
+    let next=candidate(now.getUTCFullYear());
+    if(next>now)next=candidate(now.getUTCFullYear()-1);
+    start.setTime(next.getTime());
+  }
+  return start.getUTCFullYear()+"-"+String(start.getUTCMonth()+1).padStart(2,"0")+"-"+String(start.getUTCDate()).padStart(2,"0");
+}
 async function getData(uid: string, options: { limit?: number; offset?: number; reportMonth?: string } = {}) {
   const p = db();
   const limit = Math.min(250, Math.max(1, Math.trunc(options.limit ?? 100)));
@@ -108,13 +128,23 @@ async function getData(uid: string, options: { limit?: number; offset?: number; 
     return {key,label:new Intl.DateTimeFormat("es-MX",{month:"short",timeZone:"UTC"}).format(d),income:Number(row?.income??0),expense:Number(row?.expense??0)};
   });
   const expenseByCategory = categoryRows.rows.map(row=>({name:row.category,amount:Number(row.amount),color:categories.rows.find(c=>c.name===row.category&&c.type==="expense")?.color||"#A9B4BE"}));
+  const reportCategoryRows = await p.query("SELECT category,COALESCE(SUM(amount),0)::float8 AS amount FROM public.flux_transactions WHERE user_id=$1 AND type='expense' AND transfer_group IS NULL AND transaction_date >= to_date($2 || '-01','YYYY-MM-DD') AND transaction_date < (to_date($2 || '-01','YYYY-MM-DD') + INTERVAL '1 month') GROUP BY category ORDER BY SUM(amount) DESC", [uid, reportMonth]);
+  const reportExpenseByCategory = reportCategoryRows.rows.map(row=>({name:row.category,amount:Number(row.amount),color:categories.rows.find(c=>c.name===row.category&&c.type==="expense")?.color||"#A9B4BE"}));
+  const today = new Date().toISOString().slice(0,10);
+  const budgetUsageEntries = await Promise.all(budgets.rows.filter(b=>b.is_active).map(async (budget: {id:string;category:string;period:string;starts_on:string})=>{
+    const start = budgetPeriodStart(String(budget.starts_on).slice(0,10),budget.period,today);
+    const used = await p.query("SELECT COALESCE(SUM(amount),0)::float8 AS used FROM public.flux_transactions WHERE user_id=$1 AND type='expense' AND transfer_group IS NULL AND category=$2 AND transaction_date >= $3::date AND transaction_date <= $4::date",[uid,budget.category,start,today]);
+    return [budget.id,Number(used.rows[0]?.used??0)] as const;
+  }));
+  const budgetUsage = Object.fromEntries(budgetUsageEntries);
   return {
     profile: profile.rows[0] ? { name: profile.rows[0].name, emailHint: String(profile.rows[0].email ?? "").replace(/^(.).+(@.*)$/, "$1•••$2") } : null,
     transactions: transactions.rows,
     transactionsTotal: total,
     transactionsHasMore: offset + transactions.rows.length < total,
     transactionsNextOffset: offset + transactions.rows.length,
-    summary: { currentMonth, income:Number(m.income??0), expense:Number(m.expense??0), incomeCount:Number(m.income_count??0), expenseCount:Number(m.expense_count??0), reportMonth, reportIncome:Number(report.income??0), reportExpense:Number(report.expense??0), reportMovementCount:Number(report.movement_count??0), monthlySeries, expenseByCategory, allMovementCount:Number(historicalRows.rows[0]?.movement_count??0), grossMovementAmount:Number(historicalRows.rows[0]?.gross_movement_amount??0) },
+    budgetUsage,
+    summary: { currentMonth, income:Number(m.income??0), expense:Number(m.expense??0), incomeCount:Number(m.income_count??0), expenseCount:Number(m.expense_count??0), reportMonth, reportIncome:Number(report.income??0), reportExpense:Number(report.expense??0), reportMovementCount:Number(report.movement_count??0), monthlySeries, expenseByCategory, reportExpenseByCategory, allMovementCount:Number(historicalRows.rows[0]?.movement_count??0), grossMovementAmount:Number(historicalRows.rows[0]?.gross_movement_amount??0) },
     accounts: accounts.rows,
     categories: categories.rows,
     budgets: budgets.rows,
