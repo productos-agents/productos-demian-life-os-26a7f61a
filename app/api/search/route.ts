@@ -43,7 +43,11 @@ export async function GET(req: NextRequest) {
       "ORDER BY t.transaction_date DESC,t.created_at DESC,t.id DESC LIMIT 8",
       [fid, pattern]
     ) : Promise.resolve({ rows: [] as Record<string, unknown>[] });
-    const [items, finance] = await Promise.all([itemsQuery, financeQuery]);
+    const [itemsResult, financeResult] = await Promise.allSettled([itemsQuery, financeQuery]);
+    if (itemsResult.status === "rejected") throw itemsResult.reason;
+    const items = itemsResult.value;
+    const finance = financeResult.status === "fulfilled" ? financeResult.value : { rows: [] as Record<string, unknown>[] };
+    if (financeResult.status === "rejected") console.error("DEMian search: financial history unavailable; returning personal matches only.", financeResult.reason);
     const itemResults = items.rows.map((item: Record<string, unknown>) => ({
       id: "item-" + String(item.id),
       title: String(item.title || "Registro sin título"),

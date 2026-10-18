@@ -40,6 +40,19 @@ test('global search queries full personal and FLUX history server-side with owne
 });
 
 
+test('global search degrades gracefully if FLUX is unavailable while personal search works', async () => {
+  const route = await read('../app/api/search/route.ts');
+  assert.match(route, /Promise\.allSettled\(\[itemsQuery, financeQuery\]\)/);
+  assert.match(route, /returning personal matches only/);
+});
+
+test('finance report chart uses server aggregate totals and Mexico local date functions', async () => {
+  const module = await read('../app/components/FinanceModule.tsx');
+  assert.match(module, /import \{ mexicoDateKey \} from "\.\.\/\.\.\/lib\/date-rules\.mjs"/);
+  assert.match(module, /const isoToday=\(\)=>mexicoDateKey\(\)/);
+  assert.match(module, /data\?\.summary\.reportMonth===periodFilter\?data\.summary\.reportExpense:0/);
+});
+
 test('budget periods stay anchored and handle month-end and leap-day boundaries', async () => {
   const { budgetPeriodStart } = await import('../lib/finance-rules.mjs');
   assert.equal(budgetPeriodStart('2026-10-12', 'weekly', '2026-10-18'), '2026-10-12');
