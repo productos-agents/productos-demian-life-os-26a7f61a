@@ -1,6 +1,6 @@
 {
   "name": "demian-life-os",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "private": true,
   "scripts": {
     "dev": "next dev -H 0.0.0.0",
@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start -H 0.0.0.0",
     "typecheck": "tsc --noEmit",
-    "test:smoke": "node --test tests/*.test.mjs"
+    "test:smoke": "node --test tests/*.test.mjs",
+    "migrate": "node scripts/migrate.mjs"
   },
   "dependencies": {
     "jspdf": "4.2.1",
