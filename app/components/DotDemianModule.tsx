@@ -101,7 +101,7 @@ export default function DotDemianModule() {
     const message = text.trim();
     if (!message || sending) return;
     if (!configured) {
-      setError("La IA gratuita aún no está activada en el servidor. No necesitas crear otra cuenta; falta configurar la clave del proveedor.");
+      setError("El motor gratuito no está disponible en este momento. Inténtalo de nuevo más tarde.");
       return;
     }
     setSending(true);
@@ -192,7 +192,7 @@ export default function DotDemianModule() {
                     </button>
                   ))}
                 </div>
-                {!configured && <div className="dotDemianSetupNote">El módulo ya está conectado a la aplicación. Falta activar la clave del motor gratuito en el servidor.</div>}
+                {!configured && <div className="dotDemianSetupNote">El motor gratuito no está disponible por ahora. Inténtalo de nuevo más tarde.</div>}
               </div>
             )}
             {messages.map((message, index) => (
@@ -214,7 +214,7 @@ export default function DotDemianModule() {
               value={draft}
               onChange={event => setDraft(event.target.value)}
               onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void sendMessage(); } }}
-              placeholder={configured ? "Escribe tu pregunta o lo que necesitas resolver…" : "Activa primero la IA gratuita en el servidor…"}
+              placeholder={configured ? "Escribe tu pregunta o lo que necesitas resolver…" : "El motor gratuito no está disponible por ahora…"}
               rows={2}
               maxLength={8000}
               aria-label="Mensaje para DOT DEMIAN"
@@ -228,7 +228,7 @@ export default function DotDemianModule() {
             </div>
           </form>
           {error && <p className="dotDemianError" role="alert">{error}</p>}
-          <p className="dotDemianNotice">La IA gratuita usa un proveedor externo y su disponibilidad puede variar. No incluyas contraseñas ni información de pago. Verifica lo importante antes de actuar.</p>
+          <p className="dotDemianNotice">La IA gratuita usa un proveedor externo y su disponibilidad puede variar. No incluyas contraseñas, datos financieros ni información sensible. Verifica lo importante antes de actuar.</p>
         </div>
       </div>
 
