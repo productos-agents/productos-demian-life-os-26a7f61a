@@ -215,6 +215,38 @@ const assistantTools = [
   {
     type: "function",
     function: {
+      name: "remember_user_fact",
+      description: "Guarda una memoria persistente SOLO cuando el usuario pide explícitamente recordar, guardar para el futuro o no olvidar un dato/preferencia. No guardes inferencias, datos sensibles, contraseñas, tokens, datos médicos íntimos ni hechos de terceros. Usa una clave corta y estable para poder actualizarla.",
+      parameters: {
+        type: "object",
+        properties: {
+          memory_key: { type: "string", description: "Clave estable en minúsculas, por ejemplo estilo_respuestas o proyecto_actual." },
+          content: { type: "string", description: "Dato concreto que el usuario pidió conservar, máximo 2,000 caracteres." },
+          category: { type: "string", description: "Preferencias, Proyectos, Objetivos o Contexto." }
+        },
+        required: ["memory_key", "content", "category"],
+        additionalProperties: false
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "forget_user_fact",
+      description: "Elimina una memoria persistente SOLO cuando el usuario pide explícitamente olvidar o borrar un dato que DEMIAN guardó. Identifica la clave exacta de las memorias presentes en el contexto; si no hay coincidencia clara, pregunta en lugar de borrar otra.",
+      parameters: {
+        type: "object",
+        properties: {
+          memory_key: { type: "string", description: "Clave exacta de la memoria a eliminar." }
+        },
+        required: ["memory_key"],
+        additionalProperties: false
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
       name: "organize_uploaded_file",
       description: "Clasifica el archivo que el usuario adjuntó y propone un título, una categoría y un resumen breve. Úsala únicamente cuando el sistema te indique que hay un archivo adjunto que debe guardarse en Segundo cerebro. No inventes el contenido; si no hay texto extraído, indícalo en el resumen.",
       parameters: {
