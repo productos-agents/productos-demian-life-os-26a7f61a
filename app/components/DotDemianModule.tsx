@@ -1,12 +1,13 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { ChangeEvent, FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import LineIcon from "./LineIcon";
 
 type Role = "user" | "assistant";
 type Message = { id?: number; role: Role; content: string; created_at?: string };
 type Conversation = { id: string; title: string; updated_at: string };
 type ApiError = { ok?: false; error?: string };
+type PendingAttachment = { id: string; name: string } | null;
 type PendingAction = {
   type: "finance.transaction.create" | "finance.transaction.update";
   transactionId?: string;
@@ -35,7 +36,37 @@ const quickPrompts = [
   { title: "Desarrolla una idea", text: "Ayúdame a convertir una idea en un plan sencillo, paso a paso." }
 ];
 
-export default function DotDemianModule() {
+async function extractDocumentText(file: File) {
+  const extension = file.name.toLowerCase().split(".").pop() || "";
+  let text = "";
+  if (extension === "pdf") {
+    const pdfjs = await import("pdfjs-dist");
+    pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.mjs", import.meta.url).toString();
+    const pdf = await pdfjs.getDocument({ data: await file.arrayBuffer(), isEvalSupported: false }).promise;
+    const pages: string[] = [];
+    const maxPages = Math.min(pdf.numPages, 60);
+    for (let number = 1; number <= maxPages; number++) {
+      const page = await pdf.getPage(number);
+      const content = await page.getTextContent();
+      pages.push((content.items as Array<{ str?: string }>).map(item => item.str || "").join(" "));
+    }
+    text = pages.join("\n\n");
+    if (pdf.numPages > maxPages) text += "\n\n[Texto extraído parcialmente: el PDF supera el límite de 60 páginas.]";
+  } else if (extension === "docx") {
+    const mammoth = await import("mammoth");
+    const result = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
+    text = result.value;
+  } else if (extension === "xlsx" || extension === "xls") {
+    const XLSX = await import("xlsx");
+    const workbook = XLSX.read(await file.arrayBuffer(), { type: "array" });
+    text = workbook.SheetNames.slice(0, 20).map(name => "Hoja: " + name + "\n" + XLSX.utils.sheet_to_csv(workbook.Sheets[name])).join("\n\n");
+  } else {
+    text = await file.text();
+  }
+  return text.replace(/\u0000/g, "").trim().slice(0, 100000);
+}
+
+export default function DotDemianModule({ pendingAttachment = null }: { pendingAttachment?: PendingAttachment }) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
