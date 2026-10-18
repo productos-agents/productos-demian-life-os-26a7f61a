@@ -13,6 +13,9 @@
   },
   "dependencies": {
     "jspdf": "4.2.1",
+    "mammoth": "1.10.0",
+    "pdfjs-dist": "6.4.299",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "next": "16.4.2",
     "pg": "^8.16.3",
     "postcss": "8.5.30",
