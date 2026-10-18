@@ -11,7 +11,8 @@ import type { LineIconName } from "./components/LineIcon";
 
 type Kind = "task" | "transaction" | "habit" | "note";
 type Item = { id:string; kind:Kind; title:string; details:string; amount:number|null; category:string; dueDate:string; status:string; frequency:string; doneToday?:boolean; createdAt:string };
-type FinanceSnapshot = {accounts:Array<{account_type:string;balance:number;is_active:boolean}>;transactions:Array<{type:string;amount:number;transaction_date:string;transfer_group:string|null}>};
+type FinanceSnapshot = {accounts:Array<{account_type:string;balance:number;is_active:boolean}>;transactions:Array<{id:string;type:string;amount:number;transaction_date:string;transfer_group:string|null;description:string;category:string;account_name?:string|null}>};
+type GlobalSearchResult = {id:string;title:string;subtitle:string;target:Kind;icon:LineIconName};
 type Section = "overview" | Kind;
 const sections: {id:Section; label:string; short:string; icon:LineIconName}[] = [
   {id:"overview",label:"Vista general",short:"Inicio",icon:"home"},
@@ -50,6 +51,8 @@ function applyAccentTheme(theme:AccentTheme) {
 
 const today = () => { const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
 const money = (n:number) => new Intl.NumberFormat("es-MX",{style:"currency",currency:"MXN",maximumFractionDigits:2}).format(n);
+const priorityWeight=(category:string)=>category==="Alta"?0:category==="Baja"?2:1;
+const compareTasks=(a:Item,b:Item)=>{const dueA=a.dueDate||"9999-12-31",dueB=b.dueDate||"9999-12-31";return dueA.localeCompare(dueB)||priorityWeight(a.category)-priorityWeight(b.category)||String(b.createdAt||"").localeCompare(String(a.createdAt||""));};
 
 // Frases compartidas por todos los usuarios. La fecha se calcula con la zona horaria
 // de Ciudad de México para que todos vean la misma frase durante el mismo día.
@@ -145,6 +148,9 @@ export default function Home() {
   const [financeSnapshot,setFinanceSnapshot] = useState<FinanceSnapshot|null>(null);
   const [financeConnection,setFinanceConnection] = useState<"checking"|"connected"|"error">("checking");
   const [query,setQuery] = useState("");
+  const [searchOpen,setSearchOpen] = useState(false);
+  const [financeSearchSeed,setFinanceSearchSeed] = useState("");
+  const [editingTask,setEditingTask] = useState<Item|null>(null);
   const [notice,setNotice] = useState("");
   const [formOpen,setFormOpen] = useState(false);
   const [form,setForm] = useState({title:"",details:"",amount:"",category:"",dueDate:"",frequency:"Diario"});
@@ -234,7 +240,7 @@ export default function Home() {
     return ()=>window.clearInterval(interval);
   },[]);
   useEffect(()=>{
-    if(connection!=="connected"||!("Notification" in window)||Notification.permission!=="granted") return;
+    if(!reminders||connection!=="connected"||!("Notification" in window)||Notification.permission!=="granted") return;
     const due=items.filter(i=>i.kind==="task"&&i.status!=="done"&&i.dueDate&&i.dueDate<=today());
     if(!due.length)return;
     const key="demian-notified-"+today();
@@ -248,9 +254,9 @@ export default function Home() {
       localStorage.setItem(key,JSON.stringify([...seen,...fresh.map(i=>i.id)]));
     }
   },[connection,items,reminders]);
-  const filtered = useMemo(()=>items.filter(i=>(section==="overview"||i.kind===section)&&[i.title,i.details,i.category].join(" ").toLowerCase().includes(query.toLowerCase())),[items,section,query]);
+  const filtered = useMemo(()=>items.filter(i=>(section==="overview"||i.kind===section)&&[i.title,i.details,i.category].join(" ").toLocaleLowerCase("es").includes(query.toLocaleLowerCase("es"))).sort(section==="task"?compareTasks:()=>0),[items,section,query]);
   const tasks = items.filter(i=>i.kind==="task");
-  const openTasks = tasks.filter(i=>i.status!=="done");
+  const openTasks = tasks.filter(i=>i.status!=="done").sort(compareTasks);
   const dueTasks = openTasks.filter(i=>i.dueDate && i.dueDate<=today());
   const financeTx = financeSnapshot?.transactions ?? [];
   const financeAccounts = financeSnapshot?.accounts ?? [];
@@ -263,14 +269,47 @@ export default function Home() {
   const habits = items.filter(i=>i.kind==="habit");
   const habitsDoneToday=habits.filter(i=>i.doneToday).length;
   const notes = items.filter(i=>i.kind==="note");
+  const globalSearchResults = useMemo<GlobalSearchResult[]>(()=>{
+    const term=query.trim().toLocaleLowerCase("es");
+    if(term.length<2)return [];
+    const itemResults=items.filter(i=>[i.title,i.details,i.category].join(" ").toLocaleLowerCase("es").includes(term)).map(i=>({
+      id:"item-"+i.id,title:i.title,
+      subtitle:(i.kind==="task"?"Agenda":i.kind==="habit"?"Hábitos":i.kind==="note"?"Segundo cerebro":"Registro")+" · "+(i.category||i.frequency||"Registro personal"),
+      target:i.kind,icon:(i.kind==="task"?"calendar-clock":i.kind==="habit"?"heart-pulse":i.kind==="note"?"book-open":"wallet") as LineIconName
+    }));
+    const financeResults=(financeSnapshot?.transactions||[]).filter(t=>[t.description,t.category,t.account_name||"",t.transaction_date,String(t.amount)].join(" ").toLocaleLowerCase("es").includes(term)).map(t=>({
+      id:"finance-"+t.id,title:t.description||t.category,
+      subtitle:"Finanzas · "+t.category+" · "+money(Number(t.amount||0)),
+      target:"transaction" as Kind,icon:"wallet" as LineIconName
+    }));
+    return [...itemResults,...financeResults].slice(0,8);
+  },[query,items,financeSnapshot]);
+  const openGlobalSearchResult=(result:GlobalSearchResult)=>{
+    setSection(result.target);
+    setSearchOpen(false);
+    if(result.target==="transaction")setFinanceSearchSeed(query.trim());
+    else setFinanceSearchSeed("");
+  };
+  const openNewTask=()=>{
+    setEditingTask(null);
+    setForm({title:"",details:"",amount:"",category:"Normal",dueDate:"",frequency:"Diario"});
+    setNotice("");setSection("task");setFormOpen(true);
+  };
+  const editTask=(item:Item)=>{
+    setEditingTask(item);
+    setForm({title:item.title,details:item.details||"",amount:"",category:["Alta","Normal","Baja"].includes(item.category)?item.category:"Normal",dueDate:item.dueDate||"",frequency:item.frequency||"Diario"});
+    setNotice("");setSection("task");setFormOpen(true);
+  };
   const add = async (e:React.FormEvent) => {
     e.preventDefault(); if (!form.title.trim()) return;
     setSaving(true); setNotice("");
-    const payload = {kind:section==="overview"?"task":section,...form,category:section==="transaction"?(form.category||"Ingreso"):form.category,amount:section==="transaction"?form.amount:null,logDate:today()};
+    const isEditing=!!editingTask;
+    const payload = {...(isEditing?{id:editingTask.id}:{}),kind:"task",...form,category:form.category||"Normal",amount:null,logDate:today()};
     try {
-      const r=await fetch("/api/data",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+      const r=await fetch("/api/data",{method:isEditing?"PATCH":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
       const d=await r.json(); if(!r.ok||!d.ok) throw new Error(d.error||"No se pudo guardar");
-      setItems(prev=>[d.item,...prev]); setForm({title:"",details:"",amount:"",category:"",dueDate:"",frequency:"Diario"});setFormOpen(false);setNotice("Guardado correctamente.");
+      setItems(prev=>isEditing?prev.map(item=>item.id===d.item.id?d.item:item):[d.item,...prev]);
+      setForm({title:"",details:"",amount:"",category:"Normal",dueDate:"",frequency:"Diario"});setEditingTask(null);setFormOpen(false);setNotice(isEditing?"Tarea actualizada y guardada.":"Tarea guardada correctamente.");
     } catch(e) {setNotice(e instanceof Error?e.message:"Error al guardar");}
     finally {setSaving(false);}
   };
@@ -477,14 +516,14 @@ export default function Home() {
     </div>}
     <Nudge kind={routineDialog as any} onClose={()=>setRoutineDialog(null)} mood={routineMood} setMood={setRoutineMood} note={routineNote} setNote={setRoutineNote} onSaveMood={saveMoodCheckin} word={dailyWord.word} message={dailyWord.message} onMoney={()=>setSection("transaction")} onReminder={()=>{setRoutineDialog(null);setSection("task");setForm({title:"",details:"",amount:"",category:"",dueDate:"",frequency:"Diario"});setFormOpen(true);}} />
     <aside className="sidebar">
-      <div className="brand"><div className="brandMark">D<span>·</span></div><div><b>DEMian</b><small>LIFE OS <i>V0.1</i></small></div></div>
+      <div className="brand"><div className="brandMark">D<span>·</span></div><div><b>DEMIAN CORE</b><small>TU ESPACIO PERSONAL <i>{APP_VERSION}</i></small></div></div>
       <div className="workspace"><span className="avatar">{userInitial}</span><div><b>{userName}</b><small>Espacio personal</small></div><span className="dots">•••</span></div>
       <p className="navLabel">TU SISTEMA</p>
       <nav>{sections.map(s=><button key={s.id} onClick={()=>setSection(s.id)} className={section===s.id?"navItem active":"navItem"}><span className="navGlyph"><LineIcon name={s.icon} size={19}/></span><span>{s.label}</span>{s.id==="task"&&openTasks.length>0&&<em>{openTasks.length}</em>}</button>)}</nav>
       <div className="sidebarBottom"><div className="connection"><span className={"statusDot "+connection}></span><div><b>{connection==="connected"?"Base de datos conectada":connection==="checking"?"Verificando conexión":"Sin conexión"}</b><small>{connection==="connected"?"PostgreSQL · Neon":connection==="checking"?"Comprobando persistencia":"Revisa configuración del servidor"}</small></div></div><button className="quietBtn" onClick={()=>void enableReminders()}><LineIcon name={pushEnabled?"check-circle":"bell" as LineIconName} size={16}/>{pushEnabled?"Notificaciones activas · Desactivar":"Activar notificaciones push"}</button><button className="quietBtn logoutBtn" onClick={logout}><LineIcon name="log-out" size={16}/>Cerrar sesión</button><small className="privacy">Tus registros se guardan en la base de datos de DEMian.</small></div>
     </aside>
     <section className="main">
-      <header className="topbar"><div className="breadcrumb">DEMian <span>/</span> {heading}</div><div className="topActions"><div className="searchBox"><LineIcon name="search" size={15}/><input aria-label="Buscar" placeholder="Buscar en tu sistema..." value={query} onChange={e=>setQuery(e.target.value)}/><kbd>⌘ K</kbd></div><button className="roundBtn" title="Actualizar" aria-label="Actualizar" onClick={()=>void refresh()}><LineIcon name="refresh-cw" size={16}/></button><button type="button" className={settingsOpen?"avatar settingsTrigger active":"avatar settingsTrigger"} aria-label="Abrir ajustes de apariencia" title="Ajustes de apariencia" aria-haspopup="dialog" aria-expanded={settingsOpen} onClick={()=>setSettingsOpen(true)}>{userInitial}</button></div></header>
+      <header className="topbar"><div className="breadcrumb">DEMian <span>/</span> {heading}</div><div className="topActions"><div className="searchBox"><LineIcon name="search" size={15}/><input aria-label="Buscar" placeholder="Buscar en tu sistema..." value={query} onFocus={()=>setSearchOpen(true)} onChange={e=>{setQuery(e.target.value);setSearchOpen(true);}} onKeyDown={e=>{if(e.key==="Escape")setSearchOpen(false);}}/><kbd>⌘ K</kbd>{query&&<button type="button" className="searchClear" aria-label="Limpiar búsqueda" onClick={()=>{setQuery("");setFinanceSearchSeed("");setSearchOpen(false);}}>×</button>}{searchOpen&&query.trim().length>=2&&<div className="globalSearchResults" role="listbox" aria-label="Resultados de búsqueda">{globalSearchResults.length?globalSearchResults.map(result=><button type="button" key={result.id} className="globalSearchResult" role="option" onClick={()=>openGlobalSearchResult(result)}><span className="globalSearchIcon"><LineIcon name={result.icon} size={16}/></span><span className="globalSearchText"><b>{result.title}</b><small>{result.subtitle}</small></span><span className="globalSearchArrow">↗</span></button>):<p className="globalSearchEmpty">No encontramos coincidencias en tus registros cargados.</p>}</div>}</div><button className="roundBtn" title="Actualizar" aria-label="Actualizar" onClick={()=>void refresh()}><LineIcon name="refresh-cw" size={16}/></button><button type="button" className={settingsOpen?"avatar settingsTrigger active":"avatar settingsTrigger"} aria-label="Abrir ajustes de apariencia" title="Ajustes de apariencia" aria-haspopup="dialog" aria-expanded={settingsOpen} onClick={()=>setSettingsOpen(true)}>{userInitial}</button></div></header>
       <section className="pushSetup" aria-label="Configuración de notificaciones">
         <div className="pushSetupCopy"><b>{pushEnabled?"Notificaciones push activas":"Activa las notificaciones de DEMian"}</b><small>{pushEnabled?"Recibirás tus pausas de bienestar, finanzas, recordatorios y la palabra del día.":"3 pausas de bienestar, 5 pausas financieras, revisión de recordatorios y palabra motivacional cada mañana."}</small></div>
         <button className="pushSetupButton" onClick={()=>void enableReminders()}>{pushEnabled?"Desactivar":"Activar notificaciones"}</button>
@@ -501,19 +540,19 @@ export default function Home() {
           </div>
           <div className="dashboardGrid">
             <section className="panel agendaPanel"><div className="panelHead"><div><h3>Lo que sigue</h3><p>Tus próximas tareas</p></div><button className="textBtn" onClick={()=>setSection("task")}>Ver agenda ↗</button></div>
-              {loading?<div className="empty">Cargando tus registros…</div>:openTasks.slice(0,4).length?<div className="taskList">{openTasks.slice(0,4).map(t=><div className="taskRow" key={t.id}><button className="check" onClick={()=>void toggle(t)} aria-label="Completar tarea"></button><div className="taskText"><b>{t.title}</b><small>{t.dueDate?"Fecha límite: "+t.dueDate:t.details||"Sin fecha asignada"}</small></div><button className="more" onClick={()=>void remove(t)} aria-label="Eliminar tarea">×</button></div>)}</div>:<div className="empty"><span><LineIcon name="sparkles" size={23}/></span><b>Espacio para lo que importa.</b><p>Añade tu primera tarea para comenzar.</p><button className="textBtn" onClick={()=>{setSection("task");setFormOpen(true)}}>Crear una tarea ↗</button></div>}
-              <button className="addRow" onClick={()=>{setSection("task");setFormOpen(true)}}><span>＋</span> Añadir tarea</button>
+              {loading?<div className="empty">Cargando tus registros…</div>:openTasks.slice(0,4).length?<div className="taskList">{openTasks.slice(0,4).map(t=><div className="taskRow" key={t.id}><button className="check" onClick={()=>void toggle(t)} aria-label="Completar tarea"></button><div className="taskText"><b>{t.title}</b><small>{t.dueDate?"Fecha límite: "+t.dueDate:t.details||"Sin fecha asignada"} · {t.category||"Normal"}</small></div><button type="button" className="more" onClick={()=>editTask(t)} title="Editar tarea" aria-label={"Editar "+t.title}>✎</button><button className="more" onClick={()=>void remove(t)} aria-label="Eliminar tarea">×</button></div>)}</div>:<div className="empty"><span><LineIcon name="sparkles" size={23}/></span><b>Espacio para lo que importa.</b><p>Añade tu primera tarea para comenzar.</p><button className="textBtn" onClick={openNewTask}>Crear una tarea ↗</button></div>}
+              <button className="addRow" onClick={openNewTask}><span>＋</span> Añadir tarea</button>
             </section>
             <section className="panel moneyPanel"><div className="panelHead"><div><h3>Tu dinero</h3><p>{new Intl.DateTimeFormat("es-MX",{month:"long",year:"numeric"}).format(new Date())} · FLUX</p></div><button className="textBtn" onClick={()=>setSection("transaction")}>Ver finanzas ↗</button></div><div className="balanceLabel">BALANCE NETO DE CUENTAS</div><div className="balance">{financeConnection==="connected"?money(financeBalance):"—"}</div><div className="moneyBars"><div><span><i className="incomeDot"></i>Ingresos del mes</span><b>{financeConnection==="connected"?money(income):"—"}</b></div><div className="bar"><i style={{width:(income+expenses?income/(income+expenses)*100:0)+"%"}}/></div><div><span><i className="expenseDot"></i>Gastos del mes</span><b>{financeConnection==="connected"?money(expenses):"—"}</b></div><div className="bar red"><i style={{width:(income+expenses?expenses/(income+expenses)*100:0)+"%"}}/></div></div><button className="outlineBtn" onClick={()=>{setSection("transaction");setFormOpen(true)}}>＋ Registrar movimiento</button><p className="microcopy">{financeConnection==="connected"?"Sincronizado con los movimientos y saldos de FLUX.":"Revisa la conexión con FLUX para ver los importes."}</p></section>
           </div>
           <div className="bottomGrid"><section className="panel"><div className="panelHead"><div><h3>Pequeños hábitos, grandes cambios</h3><p>Tu espacio de bienestar</p></div><button className="textBtn" onClick={()=>setSection("habit")}>Explorar ↗</button></div><div className="habitPreview">{habits.slice(0,3).map(h=><div key={h.id}><button className={h.doneToday?"habitCheck done":"habitCheck"} onClick={()=>void toggleHabit(h)} aria-label={h.doneToday?"Desmarcar hábito":"Completar hábito"}><LineIcon name={h.doneToday?"check":"sparkles"} size={16}/></button><span><b>{h.title}</b><small>{h.frequency||"Hábito personal"}</small></span></div>)}{!habits.length&&<div className="empty compact">Tus hábitos comienzan con una acción pequeña.<button className="textBtn" onClick={()=>{setSection("habit");setFormOpen(true)}}>Añadir hábito ↗</button></div>}</div></section><section className="quoteCard"><span className="quoteMark">“</span><p>{getDailyQuote(quoteDay).text}</p><small>{getDailyQuote(quoteDay).tagline}</small><div className="quoteCardActions"><button type="button" className="quoteShareBtn" onClick={()=>void shareDailyQuote()} disabled={sharingQuote}><LineIcon name="share-2" size={16}/>{sharingQuote?"Preparando imagen…":"Compartir frase"}</button></div><div className="quoteOrb"></div></section></div>
-        </>:section==="transaction"?<FinanceModule/>:section==="habit"?<WellnessModule/>:section==="note"?<KnowledgeModule/>:<><div className="moduleHero"><div><p className="eyebrow">DEMian LIFE OS / {section.toUpperCase()}</p><h1>{heading}<span>.</span></h1><p className="subhead">{section==="task"?"Organiza pendientes, fechas límite y próximos pasos.":section==="habit"?"Registra rutinas y crea consistencia con pequeños pasos.":section==="note"?"Guarda ideas, notas y referencias para encontrarlas después.":"Registra y sigue tus hábitos."}</p></div><div className="moduleActions">{section==="task"&&<button className="outlineBtn" onClick={exportCalendar}>↓ Exportar calendario .ics</button>}<button className="primaryBtn" onClick={()=>setFormOpen(v=>!v)}>＋ Nuevo registro</button></div></div>
-          {formOpen&&<form className="panel createForm" onSubmit={add}><div className="panelHead"><div><h3>Nueva tarea</h3><p>Los cambios se guardan en tu base de datos.</p></div><button type="button" className="more" onClick={()=>setFormOpen(false)}>×</button></div><label>Título<input required maxLength={160} value={form.title} onChange={e=>setForm({...form,title:e.target.value})} placeholder="Ej. Llamar al proveedor"/></label>
-            {section==="task"&&<label>Fecha límite<input type="date" value={form.dueDate} onChange={e=>setForm({...form,dueDate:e.target.value})}/></label>}
-            <label>Detalles<textarea rows={3} value={form.details} onChange={e=>setForm({...form,details:e.target.value})} placeholder="Añade contexto, notas o próximos pasos…"/></label><div className="formActions"><button type="button" className="outlineBtn" onClick={()=>setFormOpen(false)}>Cancelar</button><button disabled={saving} className="primaryBtn">{saving?"Guardando…":"Guardar registro"}</button></div></form>}
+        </>:section==="transaction"?<FinanceModule/>:section==="habit"?<WellnessModule/>:section==="note"?<KnowledgeModule/>:<><div className="moduleHero"><div><p className="eyebrow">DEMIAN CORE / {section.toUpperCase()}</p><h1>{heading}<span>.</span></h1><p className="subhead">{section==="task"?"Organiza pendientes, fechas límite y próximos pasos.":section==="habit"?"Registra rutinas y crea consistencia con pequeños pasos.":section==="note"?"Guarda ideas, notas y referencias para encontrarlas después.":"Registra y sigue tus hábitos."}</p></div><div className="moduleActions">{section==="task"&&<button className="outlineBtn" onClick={exportCalendar}>↓ Exportar calendario .ics</button>}<button className="primaryBtn" onClick={()=>formOpen?(setFormOpen(false),setEditingTask(null)):openNewTask()}>＋ Nueva tarea</button></div></div>
+          {formOpen&&<form className="panel createForm" onSubmit={add}><div className="panelHead"><div><h3>{editingTask?"Editar tarea":"Nueva tarea"}</h3><p>Los cambios se guardan en tu base de datos.</p></div><button type="button" className="more" onClick={()=>{setFormOpen(false);setEditingTask(null);}}>×</button></div><label>Título<input required maxLength={160} value={form.title} onChange={e=>setForm({...form,title:e.target.value})} placeholder="Ej. Llamar al proveedor"/></label>
+            {section==="task"&&<><label>Fecha límite<input type="date" value={form.dueDate} onChange={e=>setForm({...form,dueDate:e.target.value})}/></label><label>Prioridad<select value={form.category||"Normal"} onChange={e=>setForm({...form,category:e.target.value})}><option value="Alta">Alta · requiere atención</option><option value="Normal">Normal</option><option value="Baja">Baja · puede esperar</option></select></label></>}
+            <label>Detalles<textarea rows={3} value={form.details} onChange={e=>setForm({...form,details:e.target.value})} placeholder="Añade contexto, notas o próximos pasos…"/></label><div className="formActions"><button type="button" className="outlineBtn" onClick={()=>{setFormOpen(false);setEditingTask(null);}}>Cancelar</button><button disabled={saving} className="primaryBtn">{saving?"Guardando…":editingTask?"Guardar cambios":"Guardar tarea"}</button></div></form>}
           {notice&&<div className="notice" role="status">{notice}<button onClick={()=>setNotice("")}>×</button></div>}
           <section className="panel recordsPanel"><div className="panelHead"><div><h3>{section==="task"?"Todas tus tareas":section==="habit"?"Tus hábitos":"Tu biblioteca"}</h3><p>{filtered.length} registros</p></div><span className="recordCount">{filtered.length} TOTAL</span></div>
-            {loading?<div className="empty">Cargando registros…</div>:filtered.length?<div className="recordList">{filtered.map(i=><article className="record" key={i.id}><div className={"recordIcon "+i.kind}><LineIcon name={i.kind==="task"?"calendar-clock":i.kind==="transaction"?(i.category==="Ingreso"?"trending-up":"trending-down"):i.kind==="habit"?"heart-pulse":"book-open"} size={17}/></div><div className="recordMain"><b>{i.title}</b><p>{i.details||(i.kind==="habit"?i.frequency:i.category)||"Sin detalles adicionales"}</p><small>{i.dueDate?"Fecha: "+i.dueDate:i.createdAt?new Date(i.createdAt).toLocaleDateString("es-MX"):"Registro guardado"}</small></div>{i.kind==="transaction"&&<b className={i.category==="Ingreso"?"positive":"negative"}>{i.category==="Gasto"?"−":"+"}{money(i.amount||0)}</b>}{i.kind==="task"&&<button className={i.status==="done"?"donePill":"pendingPill"} onClick={()=>void toggle(i)}>{i.status==="done"?"✓ Completada":"Marcar lista"}</button>}{i.kind==="habit"&&<button className={i.doneToday?"donePill":"pendingPill"} onClick={()=>void toggleHabit(i)}>{i.doneToday?"✓ Hecho hoy":"Marcar hoy"}</button>}<button className="deleteBtn" onClick={()=>void remove(i)} aria-label={"Eliminar "+i.title}>×</button></article>)}</div>:<div className="empty"><span><LineIcon name="sparkles" size={23}/></span><b>Aún no hay registros.</b><p>Agrega el primero y aquí quedará guardado.</p><button className="primaryBtn" onClick={()=>setFormOpen(true)}>＋ Crear registro</button></div>}
+            {loading?<div className="empty">Cargando registros…</div>:filtered.length?<div className="recordList">{filtered.map(i=><article className="record" key={i.id}><div className={"recordIcon "+i.kind}><LineIcon name={i.kind==="task"?"calendar-clock":i.kind==="transaction"?(i.category==="Ingreso"?"trending-up":"trending-down"):i.kind==="habit"?"heart-pulse":"book-open"} size={17}/></div><div className="recordMain"><b>{i.title}</b><p>{i.details||(i.kind==="habit"?i.frequency:i.category)||"Sin detalles adicionales"}</p><small>{i.dueDate?"Fecha: "+i.dueDate:i.createdAt?new Date(i.createdAt).toLocaleDateString("es-MX"):"Registro guardado"}</small></div>{i.kind==="transaction"&&<b className={i.category==="Ingreso"?"positive":"negative"}>{i.category==="Gasto"?"−":"+"}{money(i.amount||0)}</b>}{i.kind==="task"&&<><button className={i.status==="done"?"donePill":"pendingPill"} onClick={()=>void toggle(i)}>{i.status==="done"?"✓ Completada":"Marcar lista"}</button><button className="more taskEditButton" type="button" onClick={()=>editTask(i)} title="Editar tarea" aria-label={"Editar "+i.title}>✎</button></>}{i.kind==="habit"&&<button className={i.doneToday?"donePill":"pendingPill"} onClick={()=>void toggleHabit(i)}>{i.doneToday?"✓ Hecho hoy":"Marcar hoy"}</button>}<button className="deleteBtn" onClick={()=>void remove(i)} aria-label={"Eliminar "+i.title}>×</button></article>)}</div>:<div className="empty"><span><LineIcon name="sparkles" size={23}/></span><b>Aún no hay registros.</b><p>Agrega el primero y aquí quedará guardado.</p><button className="primaryBtn" onClick={()=>setFormOpen(true)}>＋ Crear registro</button></div>}
           </section>
         </>}
         {notice&&section==="overview"&&<div className="notice" role="status">{notice}<button onClick={()=>setNotice("")}>×</button></div>}

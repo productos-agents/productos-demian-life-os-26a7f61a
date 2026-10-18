@@ -121,9 +121,21 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ ok: true, item: safeItem(rows[0]) }, { headers: noCache });
     }
     if (existing.kind !== "task") return NextResponse.json({ ok: false, error: "Este tipo de registro no admite ese cambio." }, { status: 400, headers: noCache });
-    const status = String(b.status ?? "active");
-    if (!["active", "done"].includes(status)) return NextResponse.json({ ok: false, error: "Estado de tarea inválido." }, { status: 400, headers: noCache });
-    await pool().query("UPDATE public.demian_items SET status=$1,updated_at=NOW() WHERE id=$2 AND user_id=$3 AND kind='task'", [status, id, uid]);
+    if (typeof b.title === "string" || typeof b.details === "string" || typeof b.dueDate === "string" || typeof b.category === "string") {
+      const title = String(b.title ?? existing.title).trim().slice(0, 160);
+      if (!title) return NextResponse.json({ ok: false, error: "La tarea necesita un título." }, { status: 400, headers: noCache });
+      const details = b.details === undefined ? String(existing.details ?? "") : String(b.details).slice(0, 5000);
+      const category = b.category === undefined ? String(existing.category ?? "") : String(b.category).trim().slice(0, 80);
+      const dueDate = b.dueDate === undefined ? (existing.due_date ? String(existing.due_date).slice(0,10) : null) : (b.dueDate === "" || b.dueDate == null ? null : validDate(b.dueDate));
+      if (b.dueDate && !dueDate) return NextResponse.json({ ok: false, error: "Fecha límite inválida." }, { status: 400, headers: noCache });
+      const result = await pool().query("UPDATE public.demian_items SET title=$1,details=$2,category=$3,due_date=$4,updated_at=NOW() WHERE id=$5 AND user_id=$6 AND kind='task' RETURNING id", [title, details, category, dueDate, id, uid]);
+      if (!result.rowCount) return NextResponse.json({ ok: false, error: "Tarea no encontrada." }, { status: 404, headers: noCache });
+    } else {
+      if (typeof b.status !== "string") return NextResponse.json({ ok: false, error: "No hay cambios válidos para la tarea." }, { status: 400, headers: noCache });
+      const status = String(b.status);
+      if (!["active", "done"].includes(status)) return NextResponse.json({ ok: false, error: "Estado de tarea inválido." }, { status: 400, headers: noCache });
+      await pool().query("UPDATE public.demian_items SET status=$1,updated_at=NOW() WHERE id=$2 AND user_id=$3 AND kind='task'", [status, id, uid]);
+    }
     const { rows } = await pool().query(itemsSql() + " WHERE i.user_id=$2 AND i.id=$3", [logDate, uid, id]);
     return NextResponse.json({ ok: true, item: safeItem(rows[0]) }, { headers: noCache });
   } catch (e) {
