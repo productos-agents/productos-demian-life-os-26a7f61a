@@ -15,3 +15,19 @@
 .moduleActions{display:flex;gap:9px;align-items:center;justify-content:flex-end;flex-wrap:wrap}.habitCheck{border:0;cursor:pointer;transition:background .15s,color .15s}.habitCheck.done{background:#24351a;color:#c2ff79;box-shadow:inset 0 0 0 1px #637c3d}.habitCheck:hover{filter:brightness(1.15)}@media(max-width:760px){.moduleActions{width:100%;display:grid;grid-template-columns:1fr}.moduleActions .primaryBtn,.moduleActions .outlineBtn{width:100%}}
 
 .signatureLogo{width:min(100%,560px)}.signatureLogoImage{display:block;width:100%;height:auto;max-height:120px;object-fit:contain;object-position:center}@media(max-width:480px){.signatureLogo{width:min(100%,390px)}.signatureLogoImage{max-height:86px}}
+
+/* DEMIAN CORE global search + task workflow improvements */
+.searchBox{position:relative;z-index:30}
+.searchClear{border:0;background:transparent;color:#929ba4;font-size:17px;line-height:1;padding:0 2px;flex-shrink:0}
+.globalSearchResults{position:absolute;top:calc(100% + 9px);right:0;width:min(430px,calc(100vw - 28px));max-height:min(460px,70vh);overflow:auto;padding:6px;border:1px solid #30373d;border-radius:12px;background:#0f1215;box-shadow:0 20px 60px #0009;z-index:1000}
+.globalSearchResult{width:100%;display:flex;align-items:center;gap:10px;text-align:left;padding:10px;border:0;border-radius:8px;background:transparent;color:#e7ebef}
+.globalSearchResult:hover,.globalSearchResult:focus-visible{background:#1a2025}
+.globalSearchIcon{width:32px;height:32px;flex-shrink:0;display:grid;place-items:center;border:1px solid #343b42;border-radius:9px;color:var(--green)}
+.globalSearchText{display:flex;flex:1;min-width:0;flex-direction:column;gap:4px}
+.globalSearchText b{font-size:11px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.globalSearchText small{font-size:9px;color:#89939d;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.globalSearchArrow{color:#78838c;font-size:14px}
+.globalSearchEmpty{margin:0;padding:18px 12px;color:#929ba4;font-size:11px;line-height:1.5}
+.createForm select{width:100%;border:1px solid #333b42;background:#0d1114;color:#e9edf0;border-radius:8px;padding:10px;margin-top:7px}
+.taskEditButton{font-size:15px!important;padding:4px!important}
+@media(max-width:620px){.globalSearchResults{position:fixed;top:120px;left:14px;right:14px;width:auto;max-height:60vh}.searchBox{min-width:0}.searchBox input{min-width:0}}

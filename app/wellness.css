@@ -12,3 +12,7 @@
 .wellnessPulseHistory small{font-size:8px;color:#819099;line-height:1.4;overflow-wrap:anywhere}
 .wellnessPulseHistory .wellnessPulseNote{color:#a3afb6;white-space:pre-wrap}
 .wellnessPulseHistory strong{flex-shrink:0;display:grid;place-items:center;width:30px;height:30px;border:1px solid #3b4b31;border-radius:9px;background:#20291b;color:#b7f35a;font-size:17px;font-weight:500}@media(max-width:760px){.wellnessConfirmBackdrop{align-items:flex-end;padding:0}.wellnessConfirmPanel{border-radius:15px 15px 0 0;width:100%;padding:22px 18px calc(20px + env(safe-area-inset-bottom))}}
+
+.wellnessHabitSearch{display:flex;align-items:center;gap:9px;margin:12px 0;padding:0 11px;height:38px;border:1px solid #303a40;border-radius:8px;background:#0e1215;color:#89949d}
+.wellnessHabitSearch input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:#eef0f2;font-size:11px}
+.wellnessHabitSearch button{border:0;background:transparent;color:#98a1a9;font-size:18px;padding:0 2px}
