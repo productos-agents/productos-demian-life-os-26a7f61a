@@ -237,8 +237,19 @@ export default function FinanceModule({initialSearch=""}:{initialSearch?:string}
   async function saveWidgets(next:Record<string,boolean>){await mutate("/api/finance","POST",{action:"preferences.update",preferences:{...preferences,widgets:next}});}
   function askDelete(entity:string,id:string,label:string){setPendingDelete({entity,id,label});}
   async function confirmDelete(){if(!pendingDelete)return;const item=pendingDelete;const ok=await mutate("/api/finance?entity="+encodeURIComponent(item.entity)+"&id="+encodeURIComponent(item.id),"DELETE");if(ok)setPendingDelete(null);}
-  function exportPDF(){
+  async function exportPDF(){
     if(!data)return;
+    const reportKey=tab==="reports"?periodFilter:currentMonth;
+    let reportTx:Tx[]=[];
+    let reportIncome=0,reportExpense=0;
+    try{
+      const response=await fetch("/api/finance?limit=24&offset=0&month="+encodeURIComponent(reportKey)+"&transactionMonth="+encodeURIComponent(reportKey),{cache:"no-store"});
+      const result=await response.json();
+      if(!response.ok||!result.ok)throw new Error(result.error||"No se pudieron preparar los datos completos del informe.");
+      reportTx=result.finance.transactions as Tx[];
+      reportIncome=Number(result.finance.summary.reportIncome||0);
+      reportExpense=Number(result.finance.summary.reportExpense||0);
+    }catch(error){setMessage(error instanceof Error?error.message:"No se pudieron cargar los datos del informe.");return;}
     const doc=new jsPDF({unit:"mm",format:"a4"});
     const pageWidth=210;let y=18;
     doc.setFillColor(9,11,13);doc.rect(0,0,pageWidth,297,"F");
@@ -246,10 +257,6 @@ export default function FinanceModule({initialSearch=""}:{initialSearch?:string}
     doc.setTextColor(225,230,234);doc.setFontSize(10);doc.text("REPORTE FINANCIERO PERSONAL",16,y+7);
     doc.setTextColor(137,147,155);doc.setFont("helvetica","normal");doc.setFontSize(9);doc.text("Generado "+new Date().toLocaleDateString("es-MX"),pageWidth-16,y,{align:"right"});
     y+=22;doc.setDrawColor(47,55,61);doc.line(16,y,pageWidth-16,y);y+=12;
-    const reportKey=tab==="reports"?periodFilter:currentMonth;
-    const reportTx=transactions.filter(t=>String(t.transaction_date).slice(0,7)===reportKey);
-    const reportIncome=data.summary.reportMonth===reportKey?data.summary.reportIncome:reportTx.filter(monthIncome).reduce((s,t)=>s+Number(t.amount),0);
-    const reportExpense=data.summary.reportMonth===reportKey?data.summary.reportExpense:reportTx.filter(monthExpense).reduce((s,t)=>s+Number(t.amount),0);
     const box=(x:number,top:number,label:string,value:string,color:[number,number,number])=>{doc.setFillColor(18,22,25);doc.roundedRect(x,top,56,25,3,3,"F");doc.setTextColor(130,140,148);doc.setFontSize(7);doc.text(label.toUpperCase(),x+4,top+7);doc.setTextColor(...color);doc.setFont("helvetica","bold");doc.setFontSize(10);doc.text(value,x+4,top+16);doc.setFont("helvetica","normal");};
     box(16,y,"Saldo de cuentas",fmt(allBalance),[115,183,255]);box(77,y,"Ingresos "+reportKey,fmt(reportIncome),[183,243,90]);box(138,y,"Gastos "+reportKey,fmt(reportExpense),[255,110,117]);y+=35;
     doc.setTextColor(230,234,237);doc.setFont("helvetica","bold");doc.setFontSize(12);doc.text("Muestra de movimientos de "+reportKey+" (hasta 22 registros)",16,y);y+=7;
@@ -257,7 +264,7 @@ export default function FinanceModule({initialSearch=""}:{initialSearch?:string}
     const widths=[24,21,67,38,28];let x=16;
     doc.setFillColor(29,35,39);doc.rect(16,y-4,178,8,"F");doc.setFontSize(7);doc.setTextColor(201,210,216);
     head.forEach((h,i)=>{doc.text(h,x+2,y+1);x+=widths[i];});y+=9;
-    const rows=displayTx.filter(t=>String(t.transaction_date).slice(0,7)===reportKey).slice(0,22);
+    const rows=groupTransfers(reportTx).slice(0,22);
     for(const t of rows){
       if(y>267){doc.addPage();doc.setFillColor(9,11,13);doc.rect(0,0,pageWidth,297,"F");y=18;}
       x=16;doc.setFontSize(7);doc.setTextColor(176,184,190);
