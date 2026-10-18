@@ -48,7 +48,24 @@ async function ready() {
 function sameOrigin(req: NextRequest) {
   const origin = req.headers.get("origin");
   if (!origin) return true;
-  try { return new URL(origin).origin === new URL(req.url).origin; } catch { return false; }
+  try {
+    const parsedOrigin = new URL(origin);
+    const requestUrl = new URL(req.url);
+    const originValue = parsedOrigin.origin.toLowerCase();
+    // Railway terminates HTTPS at its proxy; req.url may therefore expose the internal container URL.
+    // Accept the exact public production origin and same-origin local/dev requests only.
+    const publicProductionOrigin = "https://demian-life-os-web-production.up.railway.app";
+    if (originValue === publicProductionOrigin) return true;
+    if (originValue === requestUrl.origin.toLowerCase()) return true;
+    const forwardedHost = (req.headers.get("x-forwarded-host") || "").split(",")[0].trim().toLowerCase();
+    const host = (req.headers.get("host") || "").split(",")[0].trim().toLowerCase();
+    const forwardedProto = (req.headers.get("x-forwarded-proto") || "").split(",")[0].trim().toLowerCase();
+    const requestHost = forwardedHost || host;
+    if (requestHost && parsedOrigin.host.toLowerCase() === requestHost) {
+      return parsedOrigin.protocol === (forwardedProto ? forwardedProto + ":" : parsedOrigin.protocol);
+    }
+    return false;
+  } catch { return false; }
 }
 async function authenticated(req: NextRequest) {
   const session = requestSession(req);
