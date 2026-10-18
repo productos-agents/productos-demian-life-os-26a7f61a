@@ -678,7 +678,7 @@ export async function POST(req: NextRequest) {
       "UPDATE public.demian_assistant_conversations SET updated_at=NOW() WHERE id=$1 AND user_id=$2",
       [conversationId, session.sub]
     );
-    return json({ ok: true, conversationId, reply, provider: turn.provider, model: turn.model, pendingAction });
+    return json({ ok: true, conversationId, reply, provider: turn.provider, model: turn.model, pendingAction, refreshData: turn.toolCalls.length === 1 });
   } catch (error) {
     console.error("DEMIAN POST:", error instanceof ProviderFailure ? { provider: error.provider, status: error.status } : error);
     return json({ ok: false, error: providerErrorMessage(error) }, error instanceof ProviderFailure && error.status === 429 ? 429 : 502);
