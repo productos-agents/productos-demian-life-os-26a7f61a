@@ -213,6 +213,11 @@ export default function Home() {
   };
   useEffect(()=>{ void refresh(); },[refresh]);
   useEffect(()=>{
+    const handleDemianDataChange=()=>{ void refresh(); };
+    window.addEventListener("demian:data-changed",handleDemianDataChange);
+    return ()=>window.removeEventListener("demian:data-changed",handleDemianDataChange);
+  },[refresh]);
+  useEffect(()=>{
     const handleShortcut=(event:KeyboardEvent)=>{
       if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==="k"){
         event.preventDefault();
