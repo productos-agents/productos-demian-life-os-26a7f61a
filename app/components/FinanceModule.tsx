@@ -60,7 +60,7 @@ function groupTransfers(txs:Tx[]) {
   for(const [group,rows] of groups){const out=rows.find(t=>t.type==="expense");const inside=rows.find(t=>t.type==="income");if(out&&inside)transfers.push({...out,id:group,type:"expense",category:"Transferencia",description:"Traspaso entre cuentas",amount:Math.abs(Number(out.amount)),transfer_to_account_id:inside.account_id,transfer_to_account_name:inside.account_name});}
   return [...normal,...transfers].sort((a,b)=>String(b.transaction_date).localeCompare(String(a.transaction_date)));
 }
-export default function FinanceModule(){
+export default function FinanceModule({initialSearch=""}:{initialSearch?:string}){
   const [data,setData]=useState<FinanceData|null>(null);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState("");
@@ -96,6 +96,7 @@ export default function FinanceModule(){
     finally{setLoading(false);}
   },[]);
   useEffect(()=>{void refresh();},[refresh]);
+  useEffect(()=>{if(initialSearch.trim()){setSearch(initialSearch);setTab("transactions");}},[initialSearch]);
   useEffect(()=>{if(data&&!draft.accountId){setDraft(d=>({...d,accountId:data.accounts.find(a=>a.is_active)?.id||"",fromAccountId:data.accounts.find(a=>a.is_active)?.id||"",toAccountId:data.accounts.find(a=>a.is_active&&a.id!==d.fromAccountId)?.id||""}));}},[data,draft.accountId]);
 
   const transactions=data?.transactions||[];

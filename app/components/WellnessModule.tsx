@@ -22,7 +22,7 @@ const moodLabels=["","Muy bajo","Bajo","Neutral","Bien","Muy bien"];
 const moodIcons:Record<number,LineIconName>={1:"mood-sad",2:"mood-low",3:"mood-neutral",4:"mood-good",5:"mood-happy"};
 const emptyForm=(date:string)=>({date,sleepHours:"",waterGlasses:"",activityMinutes:"",mood:"",weightKg:"",notes:""});
 type WellnessDraft=ReturnType<typeof emptyForm>;
-export default function WellnessModule(){
+export default function WellnessModule({initialSearch=""}:{initialSearch?:string}){
   const [logs,setLogs]=useState<Log[]>([]);
   const [moodCheckins,setMoodCheckins]=useState<MoodCheckin[]>([]);
   const [habits,setHabits]=useState<Habit[]>([]);
@@ -36,6 +36,7 @@ export default function WellnessModule(){
   const [error,setError]=useState("");
   const [message,setMessage]=useState("");
   const [view,setView]=useState<"checkin"|"habits">("checkin");
+  const [habitSearch,setHabitSearch]=useState(initialSearch);
   const [confirmingDelete,setConfirmingDelete]=useState(false);
   const [pendingHabitDelete,setPendingHabitDelete]=useState<Habit|null>(null);
 
@@ -62,6 +63,7 @@ export default function WellnessModule(){
     finally{setLoading(false);}
   },[draft.date]);
   useEffect(()=>{void refresh();},[refresh]);
+  useEffect(()=>{if(initialSearch.trim()){setHabitSearch(initialSearch);setView("habits");}},[initialSearch]);
   const week=useMemo(()=>Array.from({length:7},(_,index)=>{const d=new Date(todayLocal()+"T12:00:00");d.setDate(d.getDate()-(6-index));const key=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");return {key,log:logs.find(l=>l.log_date===key)||null,label:new Intl.DateTimeFormat("es-MX",{weekday:"short"}).format(d)};}),[logs]);
   const trackedDays=week.filter(d=>d.log).length;
   const sleepLogs=week.map(d=>d.log?.sleep_hours).filter((x):x is number=>typeof x==="number");
@@ -70,6 +72,7 @@ export default function WellnessModule(){
   const avgWater=waterLogs.length?waterLogs.reduce((s,n)=>s+n,0)/waterLogs.length:null;
   const totalActivity=week.reduce((s,d)=>s+(d.log?.activity_minutes||0),0);
   const activeHabits=habits.filter(h=>h.status!=="archived");
+  const visibleHabits=activeHabits.filter(h=>[h.title,h.details,h.frequency].join(" ").toLocaleLowerCase("es").includes(habitSearch.trim().toLocaleLowerCase("es")));
   const doneToday=activeHabits.filter(h=>h.doneToday).length;
   const maxActivity=Math.max(30,...week.map(d=>d.log?.activity_minutes||0));
 
@@ -127,6 +130,7 @@ export default function WellnessModule(){
       <div className="wellnessDate"><span>HOY</span><b>{fmtDate(todayLocal())}</b><small>{doneToday} de {activeHabits.length} hábitos hechos</small></div>
     </div>
     <div className="wellnessTabs"><button className={view==="checkin"?"active":""} onClick={()=>setView("checkin")}><LineIcon name="heart-pulse" size={15}/>Registro diario</button><button className={view==="habits"?"active":""} onClick={()=>setView("habits")}><LineIcon name="check-circle" size={15}/>Mis hábitos <span>{doneToday}/{activeHabits.length}</span></button></div>
+    {view==="habits"&&<label className="wellnessHabitSearch"><LineIcon name="search" size={15}/><input aria-label="Buscar hábitos" placeholder="Buscar un hábito…" value={habitSearch} onChange={e=>setHabitSearch(e.target.value)}/>{habitSearch&&<button type="button" onClick={()=>setHabitSearch("")} aria-label="Limpiar búsqueda">×</button>}</label>
     {error&&<div className="wellnessNotice error" role="alert">{error}<button onClick={()=>setError("")}>×</button></div>}
     {message&&<div className="wellnessNotice" role="status">{message}<button onClick={()=>setMessage("")}>×</button></div>}
     {view==="checkin"?<>
@@ -161,7 +165,7 @@ export default function WellnessModule(){
       </div>
     </>:<div className="wellnessHabitLayout">
       <form className="wellnessPanel wellnessForm" onSubmit={createHabit}><div className="wellnessPanelHead"><div><h3>Nuevo hábito</h3><p>Empieza pequeño y hazlo repetible.</p></div></div><label className="wellnessField">Nombre<input required maxLength={160} value={habitTitle} onChange={e=>setHabitTitle(e.target.value)} placeholder="Ej. Caminar 20 minutos"/></label><label className="wellnessField">Frecuencia<select value={habitFrequency} onChange={e=>setHabitFrequency(e.target.value)}><option>Diario</option><option>Semanal</option><option>Entre semana</option><option>Personalizado</option></select></label><label className="wellnessField">Motivo o detalle<textarea rows={3} maxLength={2000} value={habitDetails} onChange={e=>setHabitDetails(e.target.value)} placeholder="¿Por qué quieres mantener este hábito?"/></label><button className="wellnessPrimary" disabled={savingHabit}>{savingHabit?"Guardando…":"Añadir hábito"}</button></form>
-      <section className="wellnessPanel"><div className="wellnessPanelHead"><div><h3>Tu lista de hábitos</h3><p>El registro diario se reinicia según la fecha local de la app.</p></div><span className="wellnessBadge">{doneToday}/{activeHabits.length} HOY</span></div>{loading?<div className="wellnessEmptyText">Cargando hábitos…</div>:activeHabits.length?<div className="wellnessHabitList">{activeHabits.map(h=><article key={h.id} className={h.doneToday?"completed":""}><button className="wellnessHabitCheck" onClick={()=>void toggleHabit(h)} aria-label={h.doneToday?"Desmarcar hoy":"Completar hoy"}>{h.doneToday?<LineIcon name="check" size={14}/>:null}</button><div><b>{h.title}</b><small>{h.frequency||"Hábito personal"}{h.details?" · "+h.details:""}</small></div><span className={h.doneToday?"wellnessDoneBadge":"wellnessTodoBadge"}>{h.doneToday?"Hecho hoy":"Pendiente"}</span><button className="wellnessDeleteHabit" onClick={()=>void deleteHabit(h)} aria-label={"Eliminar "+h.title} title="Eliminar hábito">×</button></article>)}</div>:<div className="wellnessEmpty"><span><LineIcon name="sparkles" size={20}/></span><b>Un pequeño paso puede ser el inicio.</b><p>Añade tu primer hábito en el formulario.</p></div>}</section>
+      <section className="wellnessPanel"><div className="wellnessPanelHead"><div><h3>Tu lista de hábitos</h3><p>El registro diario se reinicia según la fecha local de la app.</p></div><span className="wellnessBadge">{doneToday}/{activeHabits.length} HOY</span></div>{loading?<div className="wellnessEmptyText">Cargando hábitos…</div>:visibleHabits.length?<div className="wellnessHabitList">{visibleHabits.map(h=><article key={h.id} className={h.doneToday?"completed":""}><button className="wellnessHabitCheck" onClick={()=>void toggleHabit(h)} aria-label={h.doneToday?"Desmarcar hoy":"Completar hoy"}>{h.doneToday?<LineIcon name="check" size={14}/>:null}</button><div><b>{h.title}</b><small>{h.frequency||"Hábito personal"}{h.details?" · "+h.details:""}</small></div><span className={h.doneToday?"wellnessDoneBadge":"wellnessTodoBadge"}>{h.doneToday?"Hecho hoy":"Pendiente"}</span><button className="wellnessDeleteHabit" onClick={()=>void deleteHabit(h)} aria-label={"Eliminar "+h.title} title="Eliminar hábito">×</button></article>)}</div>:activeHabits.length?<div className="wellnessEmptyText">No encontramos hábitos con ese término.</div>:<div className="wellnessEmpty"><span><LineIcon name="sparkles" size={20}/></span><b>Un pequeño paso puede ser el inicio.</b><p>Añade tu primer hábito en el formulario.</p></div>}</section>
     </div>}
     {pendingHabitDelete&&<div className="wellnessConfirmBackdrop" role="presentation" onClick={()=>setPendingHabitDelete(null)}><section className="wellnessConfirmPanel" role="alertdialog" aria-modal="true" aria-labelledby="wellness-delete-habit-title" onClick={e=>e.stopPropagation()}><p className="wellnessEyebrow">CONFIRMACIÓN</p><h3 id="wellness-delete-habit-title">Eliminar hábito</h3><p>Vas a borrar “{pendingHabitDelete.title}” y su historial de marcas diarias.</p><div><button type="button" className="wellnessDeleteCancel" onClick={()=>setPendingHabitDelete(null)}>Conservar</button><button type="button" className="wellnessDeleteConfirm" disabled={savingHabit} onClick={()=>void confirmDeleteHabit()}>{savingHabit?"Eliminando…":"Eliminar hábito"}</button></div></section></div>}
     {confirmingDelete&&<div className="wellnessConfirmBackdrop" role="presentation" onClick={()=>setConfirmingDelete(false)}><section className="wellnessConfirmPanel" role="alertdialog" aria-modal="true" aria-labelledby="wellness-delete-title" onClick={e=>e.stopPropagation()}><p className="wellnessEyebrow">CONFIRMACIÓN</p><h3 id="wellness-delete-title">Eliminar registro</h3><p>Vas a borrar el check-in del {fmtDate(draft.date)}. Esta acción no se puede deshacer.</p><div><button type="button" className="wellnessDeleteCancel" onClick={()=>setConfirmingDelete(false)}>Conservar</button><button type="button" className="wellnessDeleteConfirm" disabled={saving} onClick={()=>void deleteCheckin()}>{saving?"Eliminando…":"Eliminar registro"}</button></div></section></div>}

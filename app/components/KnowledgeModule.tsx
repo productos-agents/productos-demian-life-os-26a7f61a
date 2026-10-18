@@ -8,7 +8,7 @@ type Draft = {title:string;details:string;category:string;pinned:boolean};
 const todayLocal=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");};
 const dateLabel=(value:string)=>{const date=new Date(value);return Number.isNaN(date.getTime())?"":date.toLocaleDateString("es-MX",{day:"2-digit",month:"short",year:"numeric"});};
 const blankDraft=():Draft=>({title:"",details:"",category:"General",pinned:false});
-export default function KnowledgeModule(){
+export default function KnowledgeModule({initialSearch=""}:{initialSearch?:string}){
   const [notes,setNotes]=useState<Note[]>([]);
   const [draft,setDraft]=useState<Draft>(blankDraft());
   const [editing,setEditing]=useState<Note|null>(null);
@@ -29,6 +29,7 @@ export default function KnowledgeModule(){
     finally{setLoading(false);}
   },[]);
   useEffect(()=>{void refresh();},[refresh]);
+  useEffect(()=>{if(initialSearch.trim())setSearch(initialSearch);},[initialSearch]);
   const folders=useMemo(()=>Array.from(new Set(notes.map(n=>n.category.trim()||"General"))).sort((a,b)=>a.localeCompare(b,"es")), [notes]);
   const pinnedCount=notes.filter(n=>n.pinned||n.status==="pinned").length;
   const visible=useMemo(()=>notes.filter(n=>{
