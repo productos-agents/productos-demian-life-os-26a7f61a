@@ -119,6 +119,11 @@ export default function Home() {
   const [reminders,setReminders] = useState(false);
   const [pushEnabled,setPushEnabled] = useState(false);
   const [showDialog,setShowDialog] = useState(false);
+  const [routineDialog,setRoutineDialog] = useState<string|null>(null);
+  const [routineMood,setRoutineMood] = useState(3);
+  const [routineNote,setRoutineNote] = useState("");
+  const [routineSlot,setRoutineSlot] = useState("manual");
+  const [dailyWord,setDailyWord] = useState({word:"Constancia",message:"Los pasos pequeños que repites hoy construyen un mañana más sólido."});
   const refresh = useCallback(async () => {
     setFinanceConnection("checking");
     try {
