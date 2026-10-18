@@ -103,3 +103,56 @@
   .sidebar .navItem.active .navGlyph{color:var(--green,#BD00FF) !important}
   .sidebar .navItem em{position:static !important;margin:0 !important;padding:1px 4px !important;font-size:8px !important;border-radius:10px !important;line-height:1.2 !important}
 }
+
+/* DEMIAN is available as a floating copilot across the app; navigation stays fixed. */
+.demianFloatRoot{position:relative;z-index:75}
+.demianFloatLauncher{position:fixed;right:16px;bottom:calc(88px + env(safe-area-inset-bottom));z-index:76;display:flex;align-items:center;gap:10px;padding:7px 15px 7px 7px;border:1px solid color-mix(in srgb,var(--green,#BD00FF) 65%,#4a3653);border-radius:999px;background:rgba(14,17,20,.97);color:#f4f6f8;box-shadow:0 8px 28px #0009,0 0 22px color-mix(in srgb,var(--green,#BD00FF) 15%,transparent);cursor:pointer;backdrop-filter:blur(14px)}
+.demianFloatLauncherIcon{width:46px;height:46px;display:grid;place-items:center;border-radius:50%;background:var(--accent-soft,rgba(189,0,255,.14));color:var(--green,#BD00FF);border:1px solid var(--accent-border-muted,#6a2c7e);flex-shrink:0}
+.demianFloatX{font-size:28px;line-height:1}
+.demianFloatLauncherText{display:grid;gap:2px;text-align:left}
+.demianFloatLauncherText b{font-size:11px;letter-spacing:.01em}
+.demianFloatLauncherText small{font-size:8px;color:#8a969e}
+.demianFloatLauncherDot,.demianFloatStatus i{width:7px;height:7px;border-radius:50%;background:#7beaac;box-shadow:0 0 11px #7beaac66}
+.demianFloatLauncherDot{position:absolute;top:7px;left:42px;border:2px solid #0e1114;width:9px;height:9px}
+.demianFloatLauncher.open{padding-right:14px}
+.demianFloatPanel{position:fixed;right:16px;bottom:calc(150px + env(safe-area-inset-bottom));z-index:78;width:min(920px,calc(100vw - 32px));height:min(76dvh,760px);max-height:calc(100dvh - 175px - env(safe-area-inset-bottom));display:flex;flex-direction:column;overflow:hidden;border:1px solid #333d44;border-radius:18px;background:#090c0e;box-shadow:0 24px 80px #000b,0 0 45px color-mix(in srgb,var(--green,#BD00FF) 10%,transparent)}
+.demianFloatPanelHead{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid #273037;background:linear-gradient(120deg,#151a1e,#0d1114);flex-shrink:0}
+.demianFloatAvatar{width:38px;height:38px;display:grid;place-items:center;border-radius:13px;border:1px solid var(--accent-border-muted,#58266d);color:var(--green,#BD00FF);background:var(--accent-soft,#1a1020)}
+.demianFloatPanelBrand{display:grid;gap:3px;min-width:0;flex:1}
+.demianFloatPanelBrand b{font-size:12px;letter-spacing:.09em}
+.demianFloatPanelBrand small{font-size:9px;color:#829099}
+.demianFloatStatus{display:flex;align-items:center;gap:6px;color:#7beaac;font-size:9px;font-weight:800}
+.demianFloatClose{width:32px;height:32px;border:1px solid #303a41;border-radius:10px;background:#13191d;color:#aab5bc;font-size:23px;line-height:1;cursor:pointer}
+.demianFloatPanelBody{min-height:0;flex:1;overflow:auto;padding:12px}
+.demianFloatPanelBody .dotDemian{display:flex !important;flex-direction:column !important;gap:9px !important;min-height:0 !important;height:100% !important}
+.demianFloatPanelBody .dotDemianHeader{display:none !important}
+.demianFloatPanelBody .dotDemianLayout{flex:1;min-height:0;grid-template-columns:190px minmax(0,1fr);align-items:stretch}
+.demianFloatPanelBody .dotDemianHistory{min-height:0}
+.demianFloatPanelBody .dotDemianChat{min-height:0;height:100%}
+.demianFloatPanelBody .dotDemianFeed{min-height:140px;max-height:none;flex:1;padding:15px}
+.demianFloatPanelBody .dotDemianComposer{padding:10px}
+.demianFloatPanelBody .dotDemianNotice{font-size:8px;padding:0 8px 4px}
+@media(max-width:900px){
+  .demianFloatPanel{right:10px;width:calc(100vw - 20px);bottom:calc(88px + env(safe-area-inset-bottom));height:min(75dvh,680px);max-height:calc(100dvh - 150px - env(safe-area-inset-bottom))}
+  .demianFloatPanelBody{padding:8px}
+  .demianFloatPanelBody .dotDemianLayout{display:flex !important;flex-direction:column !important;min-height:0 !important}
+  .demianFloatPanelBody .dotDemianHistory{display:none !important}
+  .demianFloatPanelBody .dotDemianChat{min-height:0 !important;height:100% !important}
+  .demianFloatPanelBody .dotDemianFeed{min-height:80px;max-height:none;flex:1;padding:12px}
+  .demianFloatPanelBody .dotDemianPrompts{grid-template-columns:1fr}
+  .demianFloatPanelBody .dotDemianPrompts button span{display:none}
+  .demianFloatLauncher{right:12px;bottom:calc(86px + env(safe-area-inset-bottom))}
+}
+@media(max-width:420px){
+  .demianFloatLauncher{padding:6px 12px 6px 6px;gap:8px}
+  .demianFloatLauncherIcon{width:42px;height:42px}
+  .demianFloatLauncherText b{font-size:10px}
+  .demianFloatLauncherText small{font-size:7px}
+  .demianFloatPanel{border-radius:16px;height:min(72dvh,620px)}
+  .demianFloatPanelHead{padding:10px}
+  .demianFloatPanelBody .dotDemianChatTop{padding:11px}
+}
+@media(min-width:761px){
+  .demianFloatLauncher{right:24px;bottom:24px}
+  .demianFloatPanel{right:24px;bottom:88px;height:min(78dvh,760px)}
+}
