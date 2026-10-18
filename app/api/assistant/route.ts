@@ -537,6 +537,53 @@ async function executeAssistantTool(
       pendingAction
     };
   }
+  if (call.function.name === "propose_financial_edit") {
+    if (!session.fid) return { reply: "Esta cuenta todavía no tiene un espacio de Finanzas vinculado, así que no puedo editar un movimiento en FLUX." };
+    const transactionId = String(args.transaction_id || "").trim();
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(transactionId)) {
+      return { reply: "No pude identificar con seguridad el movimiento que quieres corregir. Dime su descripción, importe o fecha para localizarlo." };
+    }
+    const finance = fluxDb();
+    const found = await finance.query(
+      "SELECT t.id,t.type,t.category,t.description,t.amount::float8 AS amount,t.transaction_date::text AS date,a.name AS account_name FROM public.flux_transactions t LEFT JOIN public.flux_accounts a ON a.id=t.account_id AND a.user_id=t.user_id WHERE t.id=$1 AND t.user_id=$2 AND t.transfer_group IS NULL LIMIT 1",
+      [transactionId, session.fid]
+    );
+    const existing = found.rows[0] as Record<string, unknown> | undefined;
+    if (!existing) return { reply: "No encuentro ese movimiento editable en tu cuenta. Dime su descripción, importe o fecha para localizarlo." };
+    const type = String(existing.type);
+    const amount = Object.prototype.hasOwnProperty.call(args, "amount") ? Number(args.amount) : Number(existing.amount);
+    const category = Object.prototype.hasOwnProperty.call(args, "category") ? assistantText(args.category, 80) : String(existing.category ?? "");
+    const description = Object.prototype.hasOwnProperty.call(args, "description") ? assistantText(args.description, 500) : String(existing.description ?? "");
+    const accountName = Object.prototype.hasOwnProperty.call(args, "account_name") ? assistantText(args.account_name, 100) : assistantText(existing.account_name, 100);
+    const date = Object.prototype.hasOwnProperty.call(args, "date") ? strictDate(args.date) : strictDate(String(existing.date ?? "").slice(0, 10));
+    if (!["income", "expense"].includes(type) || !Number.isFinite(amount) || amount <= 0 || amount > 999999999 || !category || !description || !accountName || !date) {
+      return { reply: "No he preparado los cambios todavía. Necesito revisar importe, descripción, categoría, cuenta y fecha." };
+    }
+    const categories = await finance.query("SELECT name FROM public.flux_categories WHERE user_id=$1 AND type=$2 AND lower(name)=lower($3) LIMIT 1", [session.fid, type, category]);
+    if (!categories.rows[0]) {
+      const valid = await finance.query("SELECT name FROM public.flux_categories WHERE user_id=$1 AND type=$2 ORDER BY name LIMIT 30", [session.fid, type]);
+      return { reply: "No encuentro la categoría «" + category + "» para este movimiento. Las categorías válidas son: " + (valid.rows.map(row => assistantText(row.name, 80)).join(", ") || "ninguna configurada") + ". Dime cuál usar." };
+    }
+    const accounts = await finance.query("SELECT name FROM public.flux_accounts WHERE user_id=$1 AND is_active=true AND lower(name)=lower($2) LIMIT 1", [session.fid, accountName]);
+    if (!accounts.rows[0]) {
+      const valid = await finance.query("SELECT name FROM public.flux_accounts WHERE user_id=$1 AND is_active=true ORDER BY created_at LIMIT 20", [session.fid]);
+      return { reply: "No encuentro la cuenta «" + accountName + "». Tus cuentas activas son: " + (valid.rows.map(row => assistantText(row.name, 100)).join(", ") || "ninguna configurada") + ". Dime cuál usar." };
+    }
+    const pendingAction: FinancePendingAction = {
+      type: "finance.transaction.update",
+      transactionId,
+      transactionType: type as "income" | "expense",
+      amount,
+      category: String(categories.rows[0].name),
+      description,
+      accountName: String(accounts.rows[0].name),
+      date
+    };
+    return {
+      reply: "Preparé la corrección del movimiento, pero no guardaré ningún cambio hasta que lo confirmes abajo. Revisa todos los datos.",
+      pendingAction
+    };
+  }
   return { reply: "No ejecuté ningún cambio porque la acción solicitada no está disponible." };
 }
 
