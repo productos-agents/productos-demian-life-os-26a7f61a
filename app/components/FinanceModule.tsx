@@ -96,7 +96,7 @@ export default function FinanceModule({initialSearch=""}:{initialSearch?:string}
     finally{setLoading(false);}
   },[]);
   useEffect(()=>{void refresh();},[refresh]);
-  useEffect(()=>{if(initialSearch.trim()){setSearch(initialSearch);setTab("transactions");}},[initialSearch]);
+  useEffect(()=>{setSearch(initialSearch);if(initialSearch.trim())setTab("transactions");},[initialSearch]);
   useEffect(()=>{if(data&&!draft.accountId){setDraft(d=>({...d,accountId:data.accounts.find(a=>a.is_active)?.id||"",fromAccountId:data.accounts.find(a=>a.is_active)?.id||"",toAccountId:data.accounts.find(a=>a.is_active&&a.id!==d.fromAccountId)?.id||""}));}},[data,draft.accountId]);
 
   const transactions=data?.transactions||[];

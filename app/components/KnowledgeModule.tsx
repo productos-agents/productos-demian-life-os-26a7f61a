@@ -29,7 +29,7 @@ export default function KnowledgeModule({initialSearch=""}:{initialSearch?:strin
     finally{setLoading(false);}
   },[]);
   useEffect(()=>{void refresh();},[refresh]);
-  useEffect(()=>{if(initialSearch.trim())setSearch(initialSearch);},[initialSearch]);
+  useEffect(()=>{setSearch(initialSearch);},[initialSearch]);
   const folders=useMemo(()=>Array.from(new Set(notes.map(n=>n.category.trim()||"General"))).sort((a,b)=>a.localeCompare(b,"es")), [notes]);
   const pinnedCount=notes.filter(n=>n.pinned||n.status==="pinned").length;
   const visible=useMemo(()=>notes.filter(n=>{
@@ -76,7 +76,7 @@ export default function KnowledgeModule({initialSearch=""}:{initialSearch?:strin
     catch{setError("No se pudo leer ese archivo de texto.");}
   }
   return <div className="knowledge">
-    <div className="knowledgeHero"><div><p className="knowledgeEyebrow">DEMian / MEMORIA PERSONAL</p><h2>Tu segundo cerebro<span>.</span></h2><p>Guarda ideas, decisiones, referencias y notas; después recupéralas con búsqueda por contenido, etiqueta o favorito.</p></div><div className="knowledgeTotal"><b>{notes.length}</b><span>NOTAS GUARDADAS</span><small>{pinnedCount} favoritas</small></div></div>
+    <div className="knowledgeHero"><div><p className="knowledgeEyebrow">DEMIAN CORE / MEMORIA PERSONAL</p><h2>Tu segundo cerebro<span>.</span></h2><p>Guarda ideas, decisiones, referencias y notas; después recupéralas con búsqueda por contenido, etiqueta o favorito.</p></div><div className="knowledgeTotal"><b>{notes.length}</b><span>NOTAS GUARDADAS</span><small>{pinnedCount} favoritas</small></div></div>
     <div className="knowledgeToolbar"><label className="knowledgeSearch"><LineIcon name="search" size={15}/><input aria-label="Buscar en notas" placeholder="Busca palabras, detalles o etiquetas…" value={search} onChange={e=>setSearch(e.target.value)}/></label><button className="knowledgeBtn" onClick={()=>fileRef.current?.click()}><LineIcon name="cloud-upload" size={15}/>Importar texto</button><input ref={fileRef} hidden type="file" accept=".txt,.md,.csv,.json,text/plain,text/markdown,application/json,text/csv" onChange={e=>void importText(e)}/><button className="knowledgeBtn" onClick={exportLibrary}><LineIcon name="download" size={15}/>Exportar biblioteca</button><button className="knowledgeBtn primary" onClick={openNew}><LineIcon name="plus" size={15}/>Nueva nota</button></div>
     <div className="knowledgeFilters"><button className={folder==="all"&&!pinnedOnly?"active":""} onClick={()=>{setFolder("all");setPinnedOnly(false);}}>Todas <span>{notes.length}</span></button><button className={pinnedOnly?"active":""} onClick={()=>{setPinnedOnly(v=>!v);setFolder("all");}}><LineIcon name="star" size={14}/>Favoritas <span>{pinnedCount}</span></button>{folders.map(f=><button key={f} className={folder===f&&!pinnedOnly?"active":""} onClick={()=>{setFolder(f);setPinnedOnly(false);}}>{f}</button>)}</div>
     {error&&<div className="knowledgeNotice error" role="alert">{error}<button onClick={()=>setError("")}>×</button></div>}{notice&&<div className="knowledgeNotice" role="status">{notice}<button onClick={()=>setNotice("")}>×</button></div>}

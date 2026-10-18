@@ -63,7 +63,7 @@ export default function WellnessModule({initialSearch=""}:{initialSearch?:string
     finally{setLoading(false);}
   },[draft.date]);
   useEffect(()=>{void refresh();},[refresh]);
-  useEffect(()=>{if(initialSearch.trim()){setHabitSearch(initialSearch);setView("habits");}},[initialSearch]);
+  useEffect(()=>{setHabitSearch(initialSearch);if(initialSearch.trim())setView("habits");},[initialSearch]);
   const week=useMemo(()=>Array.from({length:7},(_,index)=>{const d=new Date(todayLocal()+"T12:00:00");d.setDate(d.getDate()-(6-index));const key=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");return {key,log:logs.find(l=>l.log_date===key)||null,label:new Intl.DateTimeFormat("es-MX",{weekday:"short"}).format(d)};}),[logs]);
   const trackedDays=week.filter(d=>d.log).length;
   const sleepLogs=week.map(d=>d.log?.sleep_hours).filter((x):x is number=>typeof x==="number");
@@ -126,7 +126,7 @@ export default function WellnessModule({initialSearch=""}:{initialSearch?:string
   }
   return <div className="wellness">
     <div className="wellnessHero">
-      <div><p className="wellnessEyebrow">DEMian / BIENESTAR PERSONAL</p><h2>Cuídate con intención<span>.</span></h2><p>Registra cómo vas, reconoce patrones y construye hábitos sostenibles. No es un diagnóstico médico.</p></div>
+      <div><p className="wellnessEyebrow">DEMIAN CORE / BIENESTAR PERSONAL</p><h2>Cuídate con intención<span>.</span></h2><p>Registra cómo vas, reconoce patrones y construye hábitos sostenibles. No es un diagnóstico médico.</p></div>
       <div className="wellnessDate"><span>HOY</span><b>{fmtDate(todayLocal())}</b><small>{doneToday} de {activeHabits.length} hábitos hechos</small></div>
     </div>
     <div className="wellnessTabs"><button className={view==="checkin"?"active":""} onClick={()=>setView("checkin")}><LineIcon name="heart-pulse" size={15}/>Registro diario</button><button className={view==="habits"?"active":""} onClick={()=>setView("habits")}><LineIcon name="check-circle" size={15}/>Mis hábitos <span>{doneToday}/{activeHabits.length}</span></button></div>
