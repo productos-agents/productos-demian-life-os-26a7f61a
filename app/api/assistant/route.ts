@@ -297,7 +297,7 @@ async function loadWorkspaceContext(session: { sub: string; name: string; fid: s
   const actionIntent = /\b(crea|crear|creame|creáme|agrega|agregar|anota|anotar|apunta|apuntar|guarda|guardar|registra|registrar|edita|editar|cambia|cambiar|modifica|modificar|actualiza|actualizar|completa|completar|termina|terminar|marca|marcar|mueve|mover|quita|quitar|pon|poner)\b/.test(question);
   const asksTasks = /\b(tarea|tareas|pendiente|pendientes|agenda|prioridad|priorizar|organiza mi dia|que tengo que hacer|que sigue|actividades|plan de hoy|terminad|completad|he hecho)\b/.test(question) || (actionIntent && /\b(fecha|vencimiento|recordatorio|reporte|llamada|cita|evento|entrega)\b/.test(question));
   const asksHabits = /\b(habito|habitos|salud|rutina|bienestar|ejercicio|dormir|agua|constancia)\b/.test(question);
-  const asksNotes = /\b(nota|notas|idea|ideas|segundo cerebro|apunte|apuntes|guardado|guarde|recuerdo|recuerdos|buscar en mis)\b/.test(question);
+  const asksNotes = /\b(nota|notas|idea|ideas|segundo cerebro|apunte|apuntes|guardado|guarde|recuerdo|recuerdos|buscar en mis|archivo|archivos|documento|documentos|biblioteca|adjunto|pdf|word|excel)\b/.test(question);
   const asksFinance = /\b(finanza|finanzas|saldo|cuanto tengo|dinero|gasto|gastos|ingreso|ingresos|movimiento|movimientos|presupuesto|ahorro|ahorros|cuenta bancaria|deuda|deudas|tarjeta|registrar un gasto|registra un ingreso)\b/.test(question);
   const lines: string[] = [];
   const today = localDateKey();
@@ -359,11 +359,18 @@ async function loadWorkspaceContext(session: { sub: string; name: string; fid: s
         "SELECT id,title,COALESCE(details,'') AS details,COALESCE(category,'') AS category,status,created_at FROM public.demian_items WHERE user_id=$1 AND kind='note' ORDER BY CASE WHEN status='pinned' THEN 0 ELSE 1 END,updated_at DESC LIMIT 20",
         [session.sub]
       );
-      lines.push("Notas reales de Segundo cerebro de esta cuenta (solo lectura): " + (result.rows.length ? JSON.stringify(result.rows.map(row => ({
+      lines.push("Notas reales de Segundo cerebro de esta cuenta: " + (result.rows.length ? JSON.stringify(result.rows.map(row => ({
         id: Number(row.id), titulo: assistantText(row.title, 160), contenido: assistantText(row.details, 350), categoria: assistantText(row.category, 80), fijada: row.status === "pinned"
       }))) : "No hay notas guardadas.") + ".");
+      const files = await db().query(
+        "SELECT f.id,f.file_name,f.category,f.summary,f.status,f.created_at,n.title AS note_title FROM public.demian_brain_files f LEFT JOIN public.demian_items n ON n.id=f.note_id AND n.user_id=f.user_id WHERE f.user_id=$1 ORDER BY f.created_at DESC LIMIT 25",
+        [session.sub]
+      );
+      lines.push("Archivos reales guardados por DEMIAN de esta cuenta: " + (files.rows.length ? JSON.stringify(files.rows.map(row => ({
+        nombre: assistantText(row.file_name, 180), tituloOrganizado: assistantText(row.note_title, 160), categoria: assistantText(row.category, 80), resumen: assistantText(row.summary, 350), estado: assistantText(row.status, 30)
+      }))) : "Todavía no hay archivos adjuntos guardados.") + ".");
     } catch {
-      lines.push("No se pudo consultar Segundo cerebro en esta solicitud. No inventes notas.");
+      lines.push("No se pudo consultar Segundo cerebro en esta solicitud. No inventes notas ni archivos.");
     }
   }
   if (asksFinance) {
