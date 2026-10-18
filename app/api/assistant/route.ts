@@ -624,7 +624,7 @@ export async function POST(req: NextRequest) {
 
     if (isFinancialConfirmation) {
       const result = await commitFinancialAction(session, confirmAction);
-      if (!result.ok) return json({ ok: false, error: result.error }, 400);
+      if ("error" in result) return json({ ok: false, error: result.error }, 400);
       const visibleConfirmation = "Confirmé el movimiento financiero propuesto.";
       await db().query(
         "INSERT INTO public.demian_assistant_messages(conversation_id,user_id,role,content) VALUES($1,$2,'user',$3),($1,$2,'assistant',$4)",
