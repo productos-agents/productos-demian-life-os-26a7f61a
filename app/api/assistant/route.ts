@@ -7,11 +7,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const noCache = { "Cache-Control": "private, no-store, max-age=0" };
 const globals = globalThis as unknown as { demianAssistantPool?: Pool; demianAssistantReady?: Promise<void> };
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.8-flash";
 const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || "openrouter/free";
-const isConfigured = Boolean(GEMINI_API_KEY || OPENROUTER_API_KEY);
+const isConfigured = Boolean(OPENROUTER_API_KEY);
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 type ProviderAnswer = { reply: string; provider: string; model: string };
@@ -61,7 +59,7 @@ function json(data: unknown, status = 200) {
   return NextResponse.json(data, { status, headers: noCache });
 }
 function configuredProvider() {
-  return GEMINI_API_KEY ? "Gemini Flash · nivel gratuito" : OPENROUTER_API_KEY ? "OpenRouter Free" : "IA gratuita pendiente de activar";
+  return OPENROUTER_API_KEY ? "OpenRouter Free" : "OpenRouter Free pendiente de activar";
 }
 const requests = new Map<string, { startedAt: number; count: number }>();
 function allowMessage(userId: string) {
@@ -80,37 +78,10 @@ function allowMessage(userId: string) {
 }
 function providerErrorMessage(error: unknown) {
   if (error instanceof ProviderFailure) {
-    if (error.status === 429 || error.status === 402) return "Se alcanzó el límite gratuito de la IA. Espera un poco y vuelve a intentarlo.";
-    if (error.status === 400 || error.status === 401 || error.status === 403) return "La clave o el modelo del proveedor gratuito no están habilitados. Revisa la configuración del servidor.";
+    if (error.status === 429 || error.status === 402) return "OpenRouter Free alcanzó su límite gratuito. Espera un momento y vuelve a intentarlo.";
+    if (error.status === 400 || error.status === 401 || error.status === 403) return "OpenRouter rechazó la clave o el modelo. La configuración del servidor necesita revisión.";
   }
-  return "La IA gratuita no pudo responder en este momento. Inténtalo de nuevo.";
-}
-async function askGemini(instructions: string, history: ChatMessage[]): Promise<ProviderAnswer> {
-  const response = await fetch(
-    "https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(GEMINI_MODEL) + ":generateContent",
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": GEMINI_API_KEY },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: instructions }] },
-        contents: history.map(message => ({
-          role: message.role === "assistant" ? "model" : "user",
-          parts: [{ text: message.content }]
-        })),
-        generationConfig: { maxOutputTokens: 1400, temperature: 0.7 }
-      }),
-      signal: AbortSignal.timeout(60_000)
-    }
-  );
-  const result = await response.json().catch(() => ({})) as Record<string, unknown>;
-  if (!response.ok) throw new ProviderFailure(response.status, "Gemini");
-  const candidates = Array.isArray(result.candidates) ? result.candidates as Array<Record<string, unknown>> : [];
-  const candidate = candidates[0] || {};
-  const content = candidate.content && typeof candidate.content === "object" ? candidate.content as Record<string, unknown> : {};
-  const parts = Array.isArray(content.parts) ? content.parts as Array<Record<string, unknown>> : [];
-  const reply = parts.map(part => typeof part.text === "string" ? part.text : "").filter(Boolean).join("\n").trim();
-  if (!reply) throw new ProviderFailure(502, "Gemini");
-  return { reply, provider: "Gemini Flash · nivel gratuito", model: GEMINI_MODEL };
+  return "OpenRouter Free no pudo responder en este momento. Inténtalo de nuevo.";
 }
 async function askOpenRouter(instructions: string, history: ChatMessage[]): Promise<ProviderAnswer> {
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -140,14 +111,8 @@ async function askOpenRouter(instructions: string, history: ChatMessage[]): Prom
   return { reply, provider: "OpenRouter Free", model: typeof result.model === "string" ? result.model : OPENROUTER_MODEL };
 }
 async function askFreeAI(instructions: string, history: ChatMessage[]): Promise<ProviderAnswer> {
-  const failures: unknown[] = [];
-  if (GEMINI_API_KEY) {
-    try { return await askGemini(instructions, history); } catch (error) { failures.push(error); }
-  }
-  if (OPENROUTER_API_KEY) {
-    try { return await askOpenRouter(instructions, history); } catch (error) { failures.push(error); }
-  }
-  throw failures[failures.length - 1] || new Error("No hay proveedor gratuito configurado.");
+  if (!OPENROUTER_API_KEY) throw new Error("OpenRouter Free no está configurado en el servidor.");
+  return await askOpenRouter(instructions, history);
 }
 function unauthenticated() {
   return json({ ok: false, error: "Inicia sesión en DEMIAN CORE para usar DOT DEMIAN." }, 401);
@@ -190,7 +155,7 @@ export async function POST(req: NextRequest) {
     if (!session) return unauthenticated();
     if (!isConfigured) return json({
       ok: false,
-      error: "La IA gratuita aún no está activada en el servidor. Falta configurar GEMINI_API_KEY (recomendado) u OPENROUTER_API_KEY."
+      error: "OpenRouter Free aún no está habilitado en el servidor de DEMIAN CORE."
     }, 503);
     if (!allowMessage(session.sub)) return json({ ok: false, error: "Llegaste al límite temporal de 12 mensajes por minuto. Espera un momento y vuelve a intentarlo." }, 429);
     const body = await req.json().catch(() => ({})) as Record<string, unknown>;
