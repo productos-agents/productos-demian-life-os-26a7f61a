@@ -12,7 +12,7 @@ export type LineIconName =
   | "mood-happy" | "smile" | "brain" | "layout-grid" | "list-check"
   | "arrow-left-right" | "ellipsis" | "check-square" | "wallet-cards"
   | "receipt" | "calendar-days" | "chart-pie" | "hand-coins" | "coins"
-  | "book-mark" | "cloud-upload" | "download";
+  | "book-mark" | "cloud-upload" | "download" | "bell";
 
 type Props = {
   name: LineIconName;
@@ -81,7 +81,8 @@ const art: Record<LineIconName, ReactNode> = {
   "coins": <><ellipse cx="9" cy="6" rx="6" ry="3"/><path d="M3 6v5c0 1.7 2.7 3 6 3s6-1.3 6-3V6M3 11v5c0 1.7 2.7 3 6 3 1 0 2-.1 2.8-.4"/><ellipse cx="17" cy="16" rx="4" ry="2"/><path d="M13 16v3c0 1.1 1.8 2 4 2s4-.9 4-2v-3"/></>,
   "book-mark": <><path d="M6 3h12v18l-6-4-6 4Z"/><path d="M9 7h6"/></>,
   "cloud-upload": <><path d="M7 18a5 5 0 0 1-.5-10A6.5 6.5 0 0 1 19 10a4 4 0 0 1 0 8Z"/><path d="M12 16V9m-3 3 3-3 3 3"/></>,
-  "download": <><path d="M12 3v12m-4-4 4 4 4-4"/><path d="M4 17v4h16v-4"/></>
+  "download": <><path d="M12 3v12m-4-4 4 4 4-4"/><path d="M4 17v4h16v-4"/></>,
+  "bell": <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></>
 };
 
 export default function LineIcon({ name, size = 18, strokeWidth = 1.7, className }: Props) {
