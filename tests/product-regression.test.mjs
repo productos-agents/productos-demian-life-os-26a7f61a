@@ -48,3 +48,28 @@ test('the app layout does not load the ProductOS badge script', async () => {
   const layout = await read('../app/layout.tsx');
   assert.doesNotMatch(layout, /productos-badge\.js/);
 });
+
+test('finance history is paginated and ownership-scoped', async () => {
+  const route = await read('../app/api/finance/route.ts');
+  assert.match(route, /LIMIT \$2 OFFSET \$3/);
+  assert.match(route, /transactionsHasMore: offset \+ transactions\.rows\.length < total/);
+  assert.match(route, /transactionMonth = params\.get\("transactionMonth"\)/);
+  assert.match(route, /WHERE user_id=\$1 AND \(\$2::text IS NULL/);
+});
+
+test('finance dashboard totals, six-month trend and budgets aggregate on the server', async () => {
+  const route = await read('../app/api/finance/route.ts');
+  assert.match(route, /SUM\(amount\) FILTER \(WHERE type='income' AND transfer_group IS NULL\)/);
+  assert.match(route, /SUM\(amount\) FILTER \(WHERE type='expense' AND transfer_group IS NULL\)/);
+  assert.match(route, /monthlySeries/);
+  assert.match(route, /reportExpenseByCategory/);
+  assert.match(route, /const budgetUsage = Object\.fromEntries\(budgetUsageEntries\)/);
+});
+
+test('financial monthly reports fetch rows for the selected month rather than only current-page rows', async () => {
+  const module = await read('../app/components/FinanceModule.tsx');
+  assert.match(module, /transactionMonth=/);
+  assert.match(module, /reportTransactions/);
+  assert.match(module, /Cargar más del periodo/);
+  assert.match(module, /data\?\.summary\.reportIncome/);
+});
