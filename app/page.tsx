@@ -22,7 +22,7 @@ const sections: {id:Section; label:string; short:string; icon:LineIconName}[] = 
   {id:"transaction",label:"Finanzas",short:"Dinero",icon:"wallet"},
   {id:"habit",label:"Salud y hábitos",short:"Hábitos",icon:"heart-pulse"},
   {id:"note",label:"Segundo cerebro",short:"Notas",icon:"book-open"},
-  {id:"assistant",label:"DOT DEMIAN",short:"IA",icon:"brain"}
+  {id:"assistant",label:"DEMIAN",short:"IA",icon:"brain"}
 ];
 
 type AccentTheme = "red" | "blue" | "pink" | "purple" | "green" | "orange" | "white";
