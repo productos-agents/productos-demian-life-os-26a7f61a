@@ -137,6 +137,7 @@ export default function Home() {
   const [items,setItems] = useState<Item[]>([]);
   const [userName,setUserName] = useState("Mi espacio");
   const [quoteDay,setQuoteDay] = useState(()=>getMexicoDateKey());
+  const [sharingQuote,setSharingQuote] = useState(false);
   const userInitial = userName.trim().charAt(0).toUpperCase() || "D";
   const [section,setSection] = useState<Section>("overview");
   const [loading,setLoading] = useState(true);
@@ -296,6 +297,89 @@ export default function Home() {
     const content=["BEGIN:VCALENDAR","VERSION:2.0","CALSCALE:GREGORIAN","PRODID:-//DEMian Life OS//ES","METHOD:PUBLISH",...events,"END:VCALENDAR"].join("\r\n");
     const url=URL.createObjectURL(new Blob([content],{type:"text/calendar;charset=utf-8"}));const a=document.createElement("a");a.href=url;a.download="demian-agenda.ics";a.click();URL.revokeObjectURL(url);setNotice("Agenda exportada. Importa el archivo .ics en Calendario de Apple o Google Calendar.");
   };
+  const shareDailyQuote = async () => {
+    if(sharingQuote)return;
+    setSharingQuote(true);
+    try{
+      if(document.fonts?.ready)await document.fonts.ready;
+      const quote=getDailyQuote(quoteDay);
+      const canvas=document.createElement("canvas");
+      canvas.width=1080;canvas.height=1920;
+      const ctx=canvas.getContext("2d");
+      if(!ctx)throw new Error("No se pudo preparar la imagen.");
+      const width=canvas.width,height=canvas.height;
+      const accent=getComputedStyle(document.documentElement).getPropertyValue("--green").trim()||"#BD00FF";
+      const rgb=accent.match(/^#([0-9a-f]{6})$/i)?.[1];
+      const accentRgb=rgb?{r:parseInt(rgb.slice(0,2),16),g:parseInt(rgb.slice(2,4),16),b:parseInt(rgb.slice(4,6),16)}:{r:189,g:0,b:255};
+      const glow=`rgba(${accentRgb.r},${accentRgb.g},${accentRgb.b},`;
+      const background=ctx.createLinearGradient(0,0,width,height);
+      background.addColorStop(0,"#151a1e");background.addColorStop(.52,"#090b0d");background.addColorStop(1,"#111316");
+      ctx.fillStyle=background;ctx.fillRect(0,0,width,height);
+      ctx.globalAlpha=.09;ctx.fillStyle=accent;ctx.beginPath();ctx.arc(900,1470,510,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
+      ctx.strokeStyle="#30373d";ctx.lineWidth=2;ctx.beginPath();ctx.roundRect(48,52,984,1816,36);ctx.stroke();
+      ctx.strokeStyle=glow+"0.65)";ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(96,216);ctx.lineTo(260,216);ctx.stroke();
+      const loadImage=(src:string)=>new Promise<HTMLImageElement|undefined>(resolve=>{const image=new Image();image.onload=()=>resolve(image);image.onerror=()=>resolve(undefined);image.src=src;});
+      const appIcon=await loadImage("/icon.svg");
+      if(appIcon)ctx.drawImage(appIcon,96,104,76,76);
+      ctx.textAlign="left";ctx.textBaseline="alphabetic";
+      ctx.fillStyle="#f1f4f6";ctx.font="800 27px Manrope,Arial,sans-serif";ctx.fillText("DEMIAN CORE",194,139);
+      ctx.fillStyle="#89949c";ctx.font="500 16px 'DM Sans',Arial,sans-serif";ctx.fillText("TU ESPACIO. TU PROCESO.",196,170);
+      ctx.textAlign="right";ctx.fillStyle="#89949c";ctx.font="500 16px 'DM Sans',Arial,sans-serif";
+      ctx.fillText(new Date(quoteDay+"T12:00:00").toLocaleDateString("es-MX",{day:"2-digit",month:"short",year:"numeric",timeZone:"America/Mexico_City"}).toUpperCase(),982,144);
+      ctx.textAlign="left";ctx.fillStyle=accent;ctx.font="800 18px 'DM Sans',Arial,sans-serif";ctx.fillText("FRASE DEL DÍA",104,354);
+      ctx.globalAlpha=.9;ctx.fillStyle=accent;ctx.font="700 142px Georgia,serif";ctx.fillText("“",96,505);ctx.globalAlpha=1;
+      const maxTextWidth=858;
+      let fontSize=66,lines:string[]=[];
+      const wrapText=(text:string,font:string)=>{
+        ctx.font=font;
+        const output:string[]=[];let line="";
+        for(const word of text.split(/\s+/)){
+          const candidate=line?line+" "+word:word;
+          if(line&&ctx.measureText(candidate).width>maxTextWidth){output.push(line);line=word;}else line=candidate;
+        }
+        if(line)output.push(line);
+        return output;
+      };
+      do{
+        lines=wrapText(quote.text,`500 ${fontSize}px Manrope,Arial,sans-serif`);
+        if(lines.length>6)fontSize-=2;
+      }while(lines.length>6&&fontSize>48);
+      ctx.font=`500 ${fontSize}px Manrope,Arial,sans-serif`;ctx.fillStyle="#edf0f2";ctx.textAlign="left";
+      const lineHeight=Math.round(fontSize*1.36);const quoteStartY=590;
+      lines.forEach((line,index)=>ctx.fillText(line,108,quoteStartY+index*lineHeight));
+      const taglineY=Math.max(1205,quoteStartY+lines.length*lineHeight+82);
+      ctx.fillStyle=accent;ctx.font="800 19px 'DM Sans',Arial,sans-serif";ctx.fillText(quote.tagline,108,taglineY);
+      ctx.fillStyle="#89949c";ctx.font="500 17px 'DM Sans',Arial,sans-serif";ctx.fillText("UN PASO A LA VEZ",108,taglineY+42);
+      ctx.globalAlpha=.35;ctx.strokeStyle=accent;ctx.lineWidth=2;ctx.beginPath();ctx.arc(944,1450,178,0,Math.PI*2);ctx.stroke();ctx.beginPath();ctx.arc(944,1450,218,0,Math.PI*2);ctx.stroke();ctx.globalAlpha=1;
+      ctx.fillStyle=accent;ctx.font="800 16px 'DM Sans',Arial,sans-serif";ctx.textAlign="center";ctx.fillText("GUÁRDALA · COMPÁRTELA · VUELVE A ELLA",540,1518);
+      ctx.strokeStyle="#30373d";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(96,1580);ctx.lineTo(984,1580);ctx.stroke();
+      const logo=await loadImage("/jdo-services-logo.webp");
+      if(logo){
+        const maxW=260,maxH=84,scale=Math.min(maxW/logo.naturalWidth,maxH/logo.naturalHeight);
+        ctx.drawImage(logo,(width-logo.naturalWidth*scale)/2,1633,logo.naturalWidth*scale,logo.naturalHeight*scale);
+      }else{
+        ctx.fillStyle="#f1f4f6";ctx.font="700 32px Manrope,Arial,sans-serif";ctx.textAlign="center";ctx.fillText("J D O SERVICES",540,1685);
+      }
+      ctx.fillStyle="#9aa2aa";ctx.font="500 17px 'DM Sans',Arial,sans-serif";ctx.textAlign="center";
+      ctx.fillText(`DEMIAN CORE ${APP_VERSION} · DESARROLLADO POR J D O SERVICES`,540,1795);
+      const blob=await new Promise<Blob>((resolve,reject)=>canvas.toBlob(file=>file?resolve(file):reject(new Error("No se pudo exportar la imagen.")),"image/png"));
+      const file=new File([blob],`demian-core-frase-${quoteDay}.png`,{type:"image/png"});
+      if(typeof navigator.share==="function"){
+        const shareData:ShareData={title:"Frase del día · DEMIAN CORE",text:quote.text,files:[file]};
+        let canShare=true;
+        if(typeof navigator.canShare==="function")canShare=navigator.canShare({files:[file]});
+        if(canShare){
+          try{await navigator.share(shareData);setNotice("La imagen de la frase está lista para compartir.");return;}
+          catch(error){if(error instanceof DOMException&&error.name==="AbortError")return;}
+        }
+      }
+      const url=URL.createObjectURL(blob);const link=document.createElement("a");link.href=url;link.download=file.name;document.body.appendChild(link);link.click();link.remove();
+      window.setTimeout(()=>URL.revokeObjectURL(url),1500);
+      setNotice("Imagen guardada. Ya puedes subirla a tus redes sociales.");
+    }catch(error){
+      setNotice(error instanceof Error?error.message:"No se pudo crear la imagen de la frase. Inténtalo de nuevo.");
+    }finally{setSharingQuote(false);}
+  };
   const remove = async (item:Item) => {
     try {const r=await fetch("/api/data?id="+encodeURIComponent(item.id),{method:"DELETE"});const d=await r.json();if(!r.ok||!d.ok)throw new Error();setItems(prev=>prev.filter(x=>x.id!==item.id));setNotice("Registro eliminado.");}
     catch {setNotice("No se pudo eliminar el registro.");}
@@ -431,7 +515,7 @@ export default function Home() {
             </section>
             <section className="panel moneyPanel"><div className="panelHead"><div><h3>Tu dinero</h3><p>{new Intl.DateTimeFormat("es-MX",{month:"long",year:"numeric"}).format(new Date())} · FLUX</p></div><button className="textBtn" onClick={()=>setSection("transaction")}>Ver finanzas ↗</button></div><div className="balanceLabel">BALANCE NETO DE CUENTAS</div><div className="balance">{financeConnection==="connected"?money(financeBalance):"—"}</div><div className="moneyBars"><div><span><i className="incomeDot"></i>Ingresos del mes</span><b>{financeConnection==="connected"?money(income):"—"}</b></div><div className="bar"><i style={{width:(income+expenses?income/(income+expenses)*100:0)+"%"}}/></div><div><span><i className="expenseDot"></i>Gastos del mes</span><b>{financeConnection==="connected"?money(expenses):"—"}</b></div><div className="bar red"><i style={{width:(income+expenses?expenses/(income+expenses)*100:0)+"%"}}/></div></div><button className="outlineBtn" onClick={()=>{setSection("transaction");setFormOpen(true)}}>＋ Registrar movimiento</button><p className="microcopy">{financeConnection==="connected"?"Sincronizado con los movimientos y saldos de FLUX.":"Revisa la conexión con FLUX para ver los importes."}</p></section>
           </div>
-          <div className="bottomGrid"><section className="panel"><div className="panelHead"><div><h3>Pequeños hábitos, grandes cambios</h3><p>Tu espacio de bienestar</p></div><button className="textBtn" onClick={()=>setSection("habit")}>Explorar ↗</button></div><div className="habitPreview">{habits.slice(0,3).map(h=><div key={h.id}><button className={h.doneToday?"habitCheck done":"habitCheck"} onClick={()=>void toggleHabit(h)} aria-label={h.doneToday?"Desmarcar hábito":"Completar hábito"}><LineIcon name={h.doneToday?"check":"sparkles"} size={16}/></button><span><b>{h.title}</b><small>{h.frequency||"Hábito personal"}</small></span></div>)}{!habits.length&&<div className="empty compact">Tus hábitos comienzan con una acción pequeña.<button className="textBtn" onClick={()=>{setSection("habit");setFormOpen(true)}}>Añadir hábito ↗</button></div>}</div></section><section className="quoteCard"><span className="quoteMark">“</span><p>{getDailyQuote(quoteDay).text}</p><small>{getDailyQuote(quoteDay).tagline}</small><div className="quoteOrb"></div></section></div>
+          <div className="bottomGrid"><section className="panel"><div className="panelHead"><div><h3>Pequeños hábitos, grandes cambios</h3><p>Tu espacio de bienestar</p></div><button className="textBtn" onClick={()=>setSection("habit")}>Explorar ↗</button></div><div className="habitPreview">{habits.slice(0,3).map(h=><div key={h.id}><button className={h.doneToday?"habitCheck done":"habitCheck"} onClick={()=>void toggleHabit(h)} aria-label={h.doneToday?"Desmarcar hábito":"Completar hábito"}><LineIcon name={h.doneToday?"check":"sparkles"} size={16}/></button><span><b>{h.title}</b><small>{h.frequency||"Hábito personal"}</small></span></div>)}{!habits.length&&<div className="empty compact">Tus hábitos comienzan con una acción pequeña.<button className="textBtn" onClick={()=>{setSection("habit");setFormOpen(true)}}>Añadir hábito ↗</button></div>}</div></section><section className="quoteCard"><span className="quoteMark">“</span><p>{getDailyQuote(quoteDay).text}</p><small>{getDailyQuote(quoteDay).tagline}</small><div className="quoteCardActions"><button type="button" className="quoteShareBtn" onClick={()=>void shareDailyQuote()} disabled={sharingQuote}><LineIcon name="share-2" size={16}/>{sharingQuote?"Preparando imagen…":"Compartir frase"}</button></div><div className="quoteOrb"></div></section></div>
         </>:section==="transaction"?<FinanceModule/>:section==="habit"?<WellnessModule/>:section==="note"?<KnowledgeModule/>:<><div className="moduleHero"><div><p className="eyebrow">DEMian LIFE OS / {section.toUpperCase()}</p><h1>{heading}<span>.</span></h1><p className="subhead">{section==="task"?"Organiza pendientes, fechas límite y próximos pasos.":section==="habit"?"Registra rutinas y crea consistencia con pequeños pasos.":section==="note"?"Guarda ideas, notas y referencias para encontrarlas después.":"Registra y sigue tus hábitos."}</p></div><div className="moduleActions">{section==="task"&&<button className="outlineBtn" onClick={exportCalendar}>↓ Exportar calendario .ics</button>}<button className="primaryBtn" onClick={()=>setFormOpen(v=>!v)}>＋ Nuevo registro</button></div></div>
           {formOpen&&<form className="panel createForm" onSubmit={add}><div className="panelHead"><div><h3>Nueva tarea</h3><p>Los cambios se guardan en tu base de datos.</p></div><button type="button" className="more" onClick={()=>setFormOpen(false)}>×</button></div><label>Título<input required maxLength={160} value={form.title} onChange={e=>setForm({...form,title:e.target.value})} placeholder="Ej. Llamar al proveedor"/></label>
             {section==="task"&&<label>Fecha límite<input type="date" value={form.dueDate} onChange={e=>setForm({...form,dueDate:e.target.value})}/></label>}
