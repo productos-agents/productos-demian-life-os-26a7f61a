@@ -13,7 +13,8 @@ type Tx = {id:string;type:"income"|"expense";category:string;description:string;
 type Budget = {id:string;name:string;category:string;amount_limit:number;period:"weekly"|"monthly"|"yearly";starts_on:string;is_active:boolean};
 type Goal = {id:string;name:string;target_amount:number;current_amount:number;target_date:string|null;status:"active"|"completed"|"paused"};
 type Recurring = {id:string;name:string;type:"income"|"expense";category:string;description:string;amount:number;frequency:"weekly"|"biweekly"|"monthly"|"yearly";next_date:string;account_id:string|null;is_active:boolean};
-type FinanceData = {profile:{name:string;emailHint:string}|null;transactions:Tx[];accounts:Account[];categories:Category[];budgets:Budget[];goals:Goal[];recurring:Recurring[];preferences:{widgets?:Record<string,boolean>;chartMode?:string;[k:string]:unknown}};
+type FinanceSummary = {currentMonth:string;income:number;expense:number;incomeCount:number;expenseCount:number;reportMonth:string;reportIncome:number;reportExpense:number;reportMovementCount:number;monthlySeries:Array<{key:string;label:string;income:number;expense:number}>;expenseByCategory:Array<{name:string;amount:number;color:string}>;reportExpenseByCategory?:Array<{name:string;amount:number;color:string}>;allMovementCount:number;grossMovementAmount:number};
+type FinanceData = {profile:{name:string;emailHint:string}|null;transactions:Tx[];transactionsTotal:number;transactionsHasMore:boolean;transactionsNextOffset:number;summary:FinanceSummary;budgetUsage:Record<string,number>;accounts:Account[];categories:Category[];budgets:Budget[];goals:Goal[];recurring:Recurring[];preferences:{widgets?:Record<string,boolean>;chartMode?:string;[k:string]:unknown}};
 type Draft = {name:string;category:string;type:string;amount:string;description:string;date:string;accountId:string;openingBalance:string;accountType:string;period:string;startsOn:string;targetAmount:string;currentAmount:string;targetDate:string;frequency:string;nextDate:string;fromAccountId:string;toAccountId:string;color:string;icon:string};
 const tabs:{id:Tab;label:string;icon:LineIconName}[]=[
   {id:"overview",label:"Resumen",icon:"layout-grid"},
@@ -71,6 +72,7 @@ export default function FinanceModule({initialSearch=""}:{initialSearch?:string}
   const [txMode,setTxMode]=useState<Kind>("expense");
   const [editingTx,setEditingTx]=useState<Tx|null>(null);
   const [busy,setBusy]=useState(false);
+  const [loadingMoreTransactions,setLoadingMoreTransactions]=useState(false);
   const [search,setSearch]=useState("");
   const [typeFilter,setTypeFilter]=useState("all");
   const [categoryFilter,setCategoryFilter]=useState("all");
@@ -88,13 +90,13 @@ export default function FinanceModule({initialSearch=""}:{initialSearch?:string}
 
   const refresh=useCallback(async()=>{
     try{
-      const r=await fetch("/api/finance",{cache:"no-store"});
+      const r=await fetch("/api/finance?limit=100&offset=0&month="+encodeURIComponent(periodFilter),{cache:"no-store"});
       const j=await r.json();
       if(!r.ok||!j.ok)throw new Error(j.error||"No se pudo cargar FLUX.");
       setData(j.finance);setError("");
     }catch(e){setError(e instanceof Error?e.message:"No se pudo cargar el módulo financiero.");}
     finally{setLoading(false);}
-  },[]);
+  },[periodFilter]);
   useEffect(()=>{void refresh();},[refresh]);
   useEffect(()=>{setSearch(initialSearch);if(initialSearch.trim())setTab("transactions");},[initialSearch]);
   useEffect(()=>{if(data&&!draft.accountId){setDraft(d=>({...d,accountId:data.accounts.find(a=>a.is_active)?.id||"",fromAccountId:data.accounts.find(a=>a.is_active)?.id||"",toAccountId:data.accounts.find(a=>a.is_active&&a.id!==d.fromAccountId)?.id||""}));}},[data,draft.accountId]);
@@ -107,10 +109,10 @@ export default function FinanceModule({initialSearch=""}:{initialSearch?:string}
   const recurring=data?.recurring||[];
   const preferences=data?.preferences||{};
   const prefsWidgets=preferences.widgets||{balance:true,trends:true,categories:true,budgets:true,goals:true};
-  const currentMonth=monthKey();
+  const currentMonth=data?.summary.currentMonth||monthKey();
   const currentMonthTx=useMemo(()=>transactions.filter(t=>String(t.transaction_date).slice(0,7)===currentMonth),[transactions,currentMonth]);
-  const thisMonthIncome=currentMonthTx.filter(monthIncome).reduce((s,t)=>s+Number(t.amount),0);
-  const thisMonthExpense=currentMonthTx.filter(monthExpense).reduce((s,t)=>s+Number(t.amount),0);
+  const thisMonthIncome=data?.summary.income??currentMonthTx.filter(monthIncome).reduce((s,t)=>s+Number(t.amount),0);
+  const thisMonthExpense=data?.summary.expense??currentMonthTx.filter(monthExpense).reduce((s,t)=>s+Number(t.amount),0);
   const allBalance=accounts.filter(a=>a.is_active).reduce((s,a)=>s+(a.account_type==="credit"?-Number(a.balance):Number(a.balance)),0);
   const currentNet=thisMonthIncome-thisMonthExpense;
   const currentRecurring=recurring.filter(r=>r.is_active);
@@ -137,16 +139,18 @@ export default function FinanceModule({initialSearch=""}:{initialSearch?:string}
     const matches=[t.description,t.category,t.account_name,t.transfer_to_account_name].join(" ").toLowerCase().includes(q);
     return matches&&(typeFilter==="all"||(typeFilter==="transfer"?!!t.transfer_group:t.type===typeFilter))&&(categoryFilter==="all"||t.category===categoryFilter);
   }),[displayTx,search,typeFilter,categoryFilter]);
-  const expenseByCategory=useMemo(()=>{
+  const localExpenseByCategory=useMemo(()=>{
     const m=new Map<string,number>();
     for(const t of currentMonthTx.filter(monthExpense))m.set(t.category,(m.get(t.category)||0)+Number(t.amount));
     return [...m.entries()].map(([name,amount],i)=>({name,amount,color:categories.find(c=>c.name===name&&c.type==="expense")?.color||CAT_COLORS[i%CAT_COLORS.length]})).sort((a,b)=>b.amount-a.amount);
   },[currentMonthTx,categories]);
+  const expenseByCategory=data?.summary.expenseByCategory||localExpenseByCategory;
   const pieTotal=expenseByCategory.reduce((s,c)=>s+c.amount,0);
   const pieCss=useMemo(()=>{if(!pieTotal)return "conic-gradient(#252b30 0deg 360deg)";let offset=0;const parts=expenseByCategory.map(c=>{const span=c.amount/pieTotal*360;const p=`${c.color} ${offset}deg ${offset+span}deg`;offset+=span;return p;});return "conic-gradient("+parts.join(",")+")";},[expenseByCategory,pieTotal]);
-  const monthlySeries=useMemo(()=>Array.from({length:6},(_,i)=>{const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-(5-i));const key=monthKey(d);const label=d.toLocaleDateString("es-MX",{month:"short"});const ts=transactions.filter(t=>String(t.transaction_date).slice(0,7)===key);return {key,label,income:ts.filter(monthIncome).reduce((s,t)=>s+Number(t.amount),0),expense:ts.filter(monthExpense).reduce((s,t)=>s+Number(t.amount),0)};}),[transactions]);
-  const budgetViews=useMemo(()=>budgets.filter(b=>b.is_active).map(b=>{const start=startOfPeriod(b.starts_on||isoToday(),b.period);const now=isoToday();const used=transactions.filter(t=>t.type==="expense"&&!t.transfer_group&&t.category===b.category&&String(t.transaction_date)>=start&&String(t.transaction_date)<=now).reduce((s,t)=>s+Number(t.amount),0);return {...b,used,remaining:Number(b.amount_limit)-used,ratio:Math.min(100,used/Number(b.amount_limit)*100)};}),[budgets,transactions]);
-  const allTransactionsAmount=transactions.filter(t=>!t.transfer_group).reduce((s,t)=>s+Number(t.amount),0);
+  const locallyCalculatedSeries=useMemo(()=>Array.from({length:6},(_,i)=>{const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-(5-i));const key=monthKey(d);const label=d.toLocaleDateString("es-MX",{month:"short"});const ts=transactions.filter(t=>String(t.transaction_date).slice(0,7)===key);return {key,label,income:ts.filter(monthIncome).reduce((s,t)=>s+Number(t.amount),0),expense:ts.filter(monthExpense).reduce((s,t)=>s+Number(t.amount),0)};}),[transactions]);
+  const monthlySeries=data?.summary.monthlySeries||locallyCalculatedSeries;
+  const budgetViews=useMemo(()=>budgets.filter(b=>b.is_active).map(b=>{const start=startOfPeriod(b.starts_on||isoToday(),b.period);const now=isoToday();const used=data?.budgetUsage?.[b.id]??transactions.filter(t=>t.type==="expense"&&!t.transfer_group&&t.category===b.category&&String(t.transaction_date)>=start&&String(t.transaction_date)<=now).reduce((s,t)=>s+Number(t.amount),0);return {...b,used,remaining:Number(b.amount_limit)-used,ratio:Math.min(100,used/Number(b.amount_limit)*100)};}),[budgets,transactions,data?.budgetUsage]);
+  const allTransactionsAmount=data?.summary.grossMovementAmount??transactions.filter(t=>!t.transfer_group).reduce((s,t)=>s+Number(t.amount),0);
   const latest=displayTx.slice(0,7);
 
   async function mutate(path:string,method:"POST"|"PATCH"|"DELETE",body?:unknown){
@@ -155,7 +159,7 @@ export default function FinanceModule({initialSearch=""}:{initialSearch?:string}
       const r=await fetch(path,{method,headers:{"Content-Type":"application/json"},...(body?{body:JSON.stringify(body)}:{})});
       const j=await r.json();
       if(!r.ok||!j.ok)throw new Error(j.error||"No se pudo completar la operación.");
-      if(j.finance)setData(j.finance);else await refresh();
+      await refresh();
       setMessage("Cambios guardados en FLUX.");
       return true;
     }catch(e){setMessage(e instanceof Error?e.message:"Error al guardar.");return false;}
