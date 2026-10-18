@@ -50,6 +50,19 @@ export default function KnowledgeModule({initialSearch=""}:{initialSearch?:strin
     return ()=>window.removeEventListener("demian:data-changed",handleLibraryChanged);
   },[refresh]);
   useEffect(()=>{setSearch(initialSearch);},[initialSearch]);
+  useEffect(()=>{
+    let cancelled=false;
+    const term=search.trim();
+    const timer=window.setTimeout(async()=>{
+      try{
+        const url="/api/brain/files"+(term?"?q="+encodeURIComponent(term):"");
+        const r=await fetch(url,{cache:"no-store"});
+        const j=await r.json();
+        if(!cancelled&&r.ok&&j.ok&&Array.isArray(j.files))setBrainFiles(j.files as BrainFile[]);
+      }catch{}
+    },160);
+    return ()=>{cancelled=true;window.clearTimeout(timer);};
+  },[search]);
   async function loadMoreNotes(){
     if(loadingMoreNotes||!hasMoreNotes)return;
     setLoadingMoreNotes(true);
