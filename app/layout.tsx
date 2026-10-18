@@ -6,6 +6,7 @@ import "./flux-responsive.css";
 import "./wellness.css";
 import "./knowledge.css";
 import "./icons.css";
+import "./theme.css";
 
 export const metadata: Metadata = {
   openGraph: {
