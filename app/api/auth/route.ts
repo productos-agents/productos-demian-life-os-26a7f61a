@@ -3,7 +3,7 @@ import { randomUUID, timingSafeEqual } from "node:crypto";
 import {
   LEGACY_USER_ID, authDb, authIsBlocked, clearAuthFailures, createFinanceIdentity,
   createSessionToken, deleteFinanceIdentity, ensureIdentitySchema, hashPassword,
-  requestSession, setSessionCookie, verifyPassword, type DemianUserRow
+  requestSession, setSessionCookie, verifyPassword, verifySessionToken, registerSession, isActiveSessionId, revokeSession, type DemianUserRow
 } from "../../../lib/identity";
 
 export const runtime = "nodejs";
@@ -15,7 +15,15 @@ function sameText(a: string, b: string) {
   return left.length === right.length && timingSafeEqual(left, right);
 }
 function startSession(user: { id: string; name: string; email: string; role: "user" | "legacy"; flux_user_id: string | null }) {
-  return createSessionToken({ sub: user.id, name: user.name, email: user.email, role: user.role, fid: user.flux_user_id });
+  return createSessionToken({ sub: user.id, name: user.name, email: user.email, role: user.role, fid: user.flux_user_id, sid: randomUUID() });
+}
+async function setIssuedSessionCookie(res: NextResponse, user: { id: string; name: string; email: string; role: "user" | "legacy"; flux_user_id: string | null }) {
+  const token = startSession(user);
+  const session = verifySessionToken(token);
+  if (!session) throw new Error("No se pudo crear la sesión.");
+  await registerSession(session);
+  setSessionCookie(res, token);
+  return res;
 }
 function publicUser(user: { id: string; name: string; email: string; role: string }) {
   return { id: user.id, name: user.name, email: user.role === "legacy" ? null : user.email };
@@ -26,6 +34,7 @@ export async function GET(req: NextRequest) {
     await ensureIdentitySchema();
     const session = requestSession(req);
     if (!session) return NextResponse.json({ ok: true, authenticated: false, user: null }, { headers: noCache });
+    if (!(await isActiveSessionId(session.sub, session.sid))) return NextResponse.json({ ok: true, authenticated: false, user: null }, { headers: noCache });
     const { rows } = await (await authDb()).query(
       "SELECT id,name,email,role FROM public.demian_users WHERE id=$1 LIMIT 1", [session.sub]
     );
@@ -83,7 +92,7 @@ export async function POST(req: NextRequest) {
       }
       await clearAuthFailures(req);
       const res = NextResponse.json({ ok: true, user: publicUser(created.rows[0]) }, { headers: noCache });
-      setSessionCookie(res, startSession(created.rows[0]));
+      await setIssuedSessionCookie(res, created.rows[0]);
       return res;
     }
 
@@ -105,7 +114,7 @@ export async function POST(req: NextRequest) {
       if (!result.rows[0]) return NextResponse.json({ ok: false, error: "No se encontró el espacio anterior." }, { status: 503, headers: noCache });
       await clearAuthFailures(req);
       const res = NextResponse.json({ ok: true, user: publicUser(result.rows[0]) }, { headers: noCache });
-      setSessionCookie(res, startSession(result.rows[0]));
+      await setIssuedSessionCookie(res, result.rows[0]);
       return res;
     }
 
@@ -127,7 +136,7 @@ export async function POST(req: NextRequest) {
     }
     await clearAuthFailures(req);
     const res = NextResponse.json({ ok: true, user: publicUser(user) }, { headers: noCache });
-    setSessionCookie(res, startSession(user));
+    await setIssuedSessionCookie(res, user);
     return res;
   } catch (error) {
     console.error("DEMian auth POST:", error);
@@ -135,7 +144,14 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function DELETE() {
+export async function DELETE(req: NextRequest) {
   const { clearSessionCookie } = await import("../../../lib/identity");
+  try {
+    const session = requestSession(req);
+    if (session) await revokeSession(session);
+  } catch (error) {
+    console.error("DEMian session revoke:", error);
+    return NextResponse.json({ ok: false, error: "No se pudo invalidar la sesión. Inténtalo de nuevo." }, { status: 503, headers: noCache });
+  }
   return clearSessionCookie(NextResponse.json({ ok: true }, { headers: noCache }));
 }

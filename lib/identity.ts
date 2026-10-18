@@ -16,6 +16,7 @@ export type DemianSession = {
   email: string;
   role: "user" | "legacy";
   fid: string | null;
+  sid: string;
   exp: number;
 };
 
@@ -64,6 +65,7 @@ export async function ensureIdentitySchema() {
       await Promise.all([
         db.query("SELECT id,name,email,password_hash,role,flux_user_id FROM public.demian_users LIMIT 0"),
         db.query("SELECT id,user_id FROM public.demian_items LIMIT 0"),
+        db.query("SELECT id,user_id,expires_at,revoked_at FROM public.demian_sessions LIMIT 0"),
         db.query("SELECT id,user_id FROM public.demian_wellness_logs LIMIT 0"),
         db.query("SELECT key_hash,attempt_count,window_started_at,blocked_until FROM public.demian_auth_rate_limits LIMIT 0")
       ]);
@@ -107,11 +109,38 @@ export function verifySessionToken(token: string): DemianSession | null {
     if (!safeEqual(signPayload(encoded), signature)) return null;
     const payload = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as DemianSession;
     if (!payload.sub || !payload.name || !payload.email || !["user", "legacy"].includes(payload.role) ||
-        !Number.isFinite(payload.exp) || payload.exp <= Math.floor(Date.now() / 1000)) return null;
+        !Number.isFinite(payload.exp) || payload.exp <= Math.floor(Date.now() / 1000) ||
+        typeof payload.sid !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(payload.sid)) return null;
     if (payload.fid !== null && typeof payload.fid !== "string") return null;
     return payload;
   } catch { return null; }
 }
+export async function registerSession(session: DemianSession) {
+  const db = await authDb();
+  await db.query("DELETE FROM public.demian_sessions WHERE expires_at < NOW() - INTERVAL '7 days'");
+  await db.query(
+    "INSERT INTO public.demian_sessions(id,user_id,expires_at) VALUES($1,$2,to_timestamp($3))",
+    [session.sid, session.sub, session.exp]
+  );
+}
+
+export async function isActiveSessionId(userId: string, sessionId: string) {
+  const db = await authDb();
+  const result = await db.query(
+    "SELECT 1 FROM public.demian_sessions WHERE id=$1 AND user_id=$2 AND revoked_at IS NULL AND expires_at>NOW() LIMIT 1",
+    [sessionId, userId]
+  );
+  return result.rows.length > 0;
+}
+
+export async function revokeSession(session: DemianSession) {
+  const db = await authDb();
+  await db.query(
+    "UPDATE public.demian_sessions SET revoked_at=NOW() WHERE id=$1 AND user_id=$2 AND revoked_at IS NULL",
+    [session.sid, session.sub]
+  );
+}
+
 export function requestSession(req: NextRequest): DemianSession | null {
   const token = req.cookies.get("demian_session")?.value;
   return token ? verifySessionToken(token) : null;

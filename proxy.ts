@@ -1,3 +1,4 @@
+import { isActiveSessionId } from "./lib/identity";
 import { NextRequest, NextResponse } from "next/server";
 
 async function expectedSignature(encoded: string, secret: string) {
@@ -11,14 +12,15 @@ function constantTimeEqual(a: string, b: string) {
   for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return diff === 0;
 }
-function decodePayload(encoded: string): { sub: string; name: string; email: string; role: "user" | "legacy"; fid: string | null; exp: number } | null {
+function decodePayload(encoded: string): { sub: string; name: string; email: string; role: "user" | "legacy"; fid: string | null; sid: string; exp: number } | null {
   try {
     const padded = encoded.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((encoded.length + 3) % 4);
     const bytes = Uint8Array.from(atob(padded), c => c.charCodeAt(0));
     const p = JSON.parse(new TextDecoder().decode(bytes));
     if (typeof p.sub !== "string" || typeof p.name !== "string" || typeof p.email !== "string" ||
         !["user", "legacy"].includes(p.role) || (p.fid !== null && typeof p.fid !== "string") ||
-        typeof p.exp !== "number" || p.exp <= Math.floor(Date.now() / 1000)) return null;
+        typeof p.exp !== "number" || p.exp <= Math.floor(Date.now() / 1000) ||
+        typeof p.sid !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(p.sid)) return null;
     return p;
   } catch { return null; }
 }
@@ -34,6 +36,15 @@ export async function proxy(req: NextRequest) {
   if (secret && encoded && signature && !extra) {
     const expected = await expectedSignature(encoded, secret);
     if (constantTimeEqual(signature, expected)) payload = decodePayload(encoded);
+  }
+  if (payload) {
+    try {
+      if (!(await isActiveSessionId(payload.sub, payload.sid))) payload = null;
+    } catch (error) {
+      console.error("DEMian session validation unavailable:", error);
+      if (path.startsWith("/api/")) return NextResponse.json({ ok: false, error: "No se pudo validar la sesión." }, { status: 503, headers: { "Cache-Control": "private, no-store" } });
+      return new NextResponse("No se pudo validar la sesión. Inténtalo de nuevo.", { status: 503, headers: { "Cache-Control": "private, no-store" } });
+    }
   }
   if (!payload) {
     if (path.startsWith("/api/")) return NextResponse.json({ ok: false, error: "Necesitas iniciar sesión." }, { status: 401, headers: { "Cache-Control": "private, no-store" } });
