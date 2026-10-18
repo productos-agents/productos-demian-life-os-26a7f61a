@@ -293,7 +293,7 @@ export default function Home() {
     }catch(error){setNotice(error instanceof Error?error.message:"No se pudo guardar el check-in.");}
   };
   const heading=sections.find(s=>s.id===section)?.label||"DEMian";
-  return <main className="shell"><Nudge kind={routineDialog as any} onClose={()=>setRoutineDialog(null)} mood={routineMood} setMood={setRoutineMood} note={routineNote} setNote={setRoutineNote} onSaveMood={saveMoodCheckin} word={dailyWord.word} message={dailyWord.message} onMoney={()=>setSection("transaction")} onReminder={()=>{setSection("task");setFormOpen(true);}} />
+  return <main className="shell"><Nudge kind={routineDialog as any} onClose={()=>setRoutineDialog(null)} mood={routineMood} setMood={setRoutineMood} note={routineNote} setNote={setRoutineNote} onSaveMood={saveMoodCheckin} word={dailyWord.word} message={dailyWord.message} onMoney={()=>setSection("transaction")} onReminder={()=>{setRoutineDialog(null);setSection("task");setForm({title:"",details:"",amount:"",category:"",dueDate:"",frequency:"Diario"});setFormOpen(true);}} />
     <aside className="sidebar">
       <div className="brand"><div className="brandMark">D<span>·</span></div><div><b>DEMian</b><small>LIFE OS <i>V0.1</i></small></div></div>
       <div className="workspace"><span className="avatar">{userInitial}</span><div><b>{userName}</b><small>Espacio personal</small></div><span className="dots">•••</span></div>
