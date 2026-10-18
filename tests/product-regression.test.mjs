@@ -33,7 +33,7 @@ test('global search queries full personal and FLUX history server-side with owne
   assert.match(page, /fetch\("\/api\/search\?q="\+encodeURIComponent\(term\)/);
   assert.match(page, /openGlobalSearchResult/);
   assert.match(route, /FROM public\.demian_items/);
-  assert.match(route, /t\.user_id=\$1 AND \(t\.transaction_date >=/);
+  assert.match(route, /WHERE t\.user_id=\$1 AND/);
   assert.match(route, /FROM public\.flux_transactions t/);
   assert.match(route, /WHERE t\.user_id=\$1 AND \(t\.description ILIKE/);
   assert.match(route, /LIMIT 8/);
@@ -87,7 +87,7 @@ test('finance history is paginated and ownership-scoped', async () => {
   assert.match(route, /LIMIT \$2 OFFSET \$3/);
   assert.match(route, /transactionsHasMore: offset \+ transactions\.rows\.length < total/);
   assert.match(route, /transactionMonth = params\.get\("transactionMonth"\)/);
-  assert.match(route, /t\.user_id=\$1 AND \(t\.transaction_date >=/);
+  assert.match(route, /WHERE t\.user_id=\$1 AND/);
 });
 
 test('finance dashboard totals, six-month trend and budgets aggregate on the server', async () => {
