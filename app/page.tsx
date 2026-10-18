@@ -117,6 +117,7 @@ export default function Home() {
   const [form,setForm] = useState({title:"",details:"",amount:"",category:"",dueDate:"",frequency:"Diario"});
   const [saving,setSaving] = useState(false);
   const [reminders,setReminders] = useState(false);
+  const [pushEnabled,setPushEnabled] = useState(false);
   const refresh = useCallback(async () => {
     setFinanceConnection("checking");
     try {
