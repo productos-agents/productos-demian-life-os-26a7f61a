@@ -7,6 +7,15 @@ type Role = "user" | "assistant";
 type Message = { id?: number; role: Role; content: string; created_at?: string };
 type Conversation = { id: string; title: string; updated_at: string };
 type ApiError = { ok?: false; error?: string };
+type PendingAction = {
+  type: "finance.transaction.create";
+  transactionType: "income" | "expense";
+  amount: number;
+  category: string;
+  description: string;
+  accountName: string;
+  date: string;
+};
 
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const response = await fetch(url, {
@@ -34,6 +43,7 @@ export default function DotDemianModule() {
   const [sending, setSending] = useState(false);
   const [configured, setConfigured] = useState(false);
   const [provider, setProvider] = useState("IA gratuita");
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [error, setError] = useState("");
   const feed = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
@@ -53,6 +63,7 @@ export default function DotDemianModule() {
   const openConversation = useCallback(async (id: string) => {
     setActiveId(id);
     setMessages([]);
+    setPendingAction(null);
     setError("");
     try {
       const data = await api<{ messages: Message[] }>("/api/assistant?conversationId=" + encodeURIComponent(id));
@@ -92,6 +103,7 @@ export default function DotDemianModule() {
   function newConversation() {
     setActiveId(null);
     setMessages([]);
+    setPendingAction(null);
     setDraft("");
     setError("");
     input.current?.focus();
@@ -106,15 +118,17 @@ export default function DotDemianModule() {
     }
     setSending(true);
     setError("");
+    setPendingAction(null);
     setDraft("");
     setMessages(previous => [...previous, { role: "user", content: message }]);
     try {
-      const data = await api<{ conversationId: string; reply: string }>("/api/assistant", {
+      const data = await api<{ conversationId: string; reply: string; pendingAction?: PendingAction | null }>("/api/assistant", {
         method: "POST",
         body: JSON.stringify({ message, conversationId: activeId })
       });
       setActiveId(data.conversationId);
       setMessages(previous => [...previous, { role: "assistant", content: data.reply }]);
+      setPendingAction(data.pendingAction || null);
       await refreshConversations();
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo obtener una respuesta. Inténtalo de nuevo.");
