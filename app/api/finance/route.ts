@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Pool, PoolClient } from "pg";
 import { randomUUID } from "node:crypto";
+import { mexicoDateKey } from "../../../lib/date-rules.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -83,13 +84,16 @@ function budgetPeriodStart(startDate: string, period: string, today: string) {
   }
   return start.getUTCFullYear()+"-"+String(start.getUTCMonth()+1).padStart(2,"0")+"-"+String(start.getUTCDate()).padStart(2,"0");
 }
-async function getData(uid: string, options: { limit?: number; offset?: number; reportMonth?: string; transactionMonth?: string } = {}) {
+async function getData(uid: string, options: { limit?: number; offset?: number; reportMonth?: string; transactionMonth?: string; transactionSearch?: string } = {}) {
   const p = db();
   const limit = Math.min(250, Math.max(1, Math.trunc(options.limit ?? 100)));
   const offset = Math.min(1_000_000, Math.max(0, Math.trunc(options.offset ?? 0)));
-  const currentMonth = new Date().toISOString().slice(0, 7);
+  const currentDate = mexicoDateKey();
+  const currentMonth = currentDate.slice(0, 7);
   const reportMonth = validMonth(options.reportMonth) ?? currentMonth;
   const transactionMonth = validMonth(options.transactionMonth);
+  const transactionSearch = String(options.transactionSearch ?? "").trim().slice(0,100);
+  const transactionPattern = transactionSearch ? "%" + transactionSearch.replace(/[\\%_]/g, "\\$&") + "%" : null;
   const [profile, transactions, accounts, categories, budgets, goals, recurring, prefs] = await Promise.all([
     p.query("SELECT id,name,email FROM public.flux_users WHERE id=$1 LIMIT 1", [uid]),
     p.query(`SELECT t.id,t.type,t.category,t.description,t.amount::float8 AS amount,t.transaction_date::text AS transaction_date,t.created_at,
@@ -97,7 +101,7 @@ async function getData(uid: string, options: { limit?: number; offset?: number; 
       FROM public.flux_transactions t
       LEFT JOIN public.flux_accounts a ON a.id=t.account_id AND a.user_id=t.user_id
       LEFT JOIN public.flux_accounts ta ON ta.id=t.transfer_to_account_id AND ta.user_id=t.user_id
-      WHERE t.user_id=$1 AND ($4::text IS NULL OR (t.transaction_date >= to_date($4 || '-01','YYYY-MM-DD') AND t.transaction_date < (to_date($4 || '-01','YYYY-MM-DD') + INTERVAL '1 month'))) ORDER BY t.transaction_date DESC,t.created_at DESC,t.id DESC LIMIT $2 OFFSET $3`, [uid, limit, offset, transactionMonth]),
+      WHERE t.user_id=$1 AND ($4::text IS NULL OR (t.transaction_date >= to_date($4 || '-01','YYYY-MM-DD') AND t.transaction_date < (to_date($4 || '-01','YYYY-MM-DD') + INTERVAL '1 month'))) AND ($5::text IS NULL OR (t.description ILIKE $5 OR t.category ILIKE $5 OR t.transaction_date::text ILIKE $5 OR t.amount::text ILIKE $5 OR a.name ILIKE $5)) ORDER BY t.transaction_date DESC,t.created_at DESC,t.id DESC LIMIT $2 OFFSET $3`, [uid, limit, offset, transactionMonth, transactionPattern]),
     p.query(`SELECT a.id,a.name,a.account_type,a.opening_balance::float8 AS opening_balance,a.currency,a.is_active,
       (a.opening_balance + COALESCE(SUM(CASE WHEN a.account_type='credit' AND t.type='expense' THEN t.amount WHEN a.account_type='credit' AND t.type='income' THEN -t.amount WHEN a.account_type<>'credit' AND t.type='income' THEN t.amount WHEN a.account_type<>'credit' AND t.type='expense' THEN -t.amount ELSE 0 END),0))::float8 AS balance
       FROM public.flux_accounts a
@@ -110,7 +114,7 @@ async function getData(uid: string, options: { limit?: number; offset?: number; 
     p.query("SELECT preferences FROM public.flux_preferences WHERE user_id=$1", [uid])
   ]);
   const [totalRows, monthRows, reportRows, monthlyRows, categoryRows, historicalRows] = await Promise.all([
-    p.query("SELECT COUNT(*)::int AS total FROM public.flux_transactions WHERE user_id=$1 AND ($2::text IS NULL OR (transaction_date >= to_date($2 || '-01','YYYY-MM-DD') AND transaction_date < (to_date($2 || '-01','YYYY-MM-DD') + INTERVAL '1 month')))", [uid, transactionMonth]),
+    p.query("SELECT COUNT(*)::int AS total FROM public.flux_transactions t WHERE t.user_id=$1 AND ($2::text IS NULL OR (t.transaction_date >= to_date($2 || '-01','YYYY-MM-DD') AND t.transaction_date < (to_date($2 || '-01','YYYY-MM-DD') + INTERVAL '1 month'))) AND ($3::text IS NULL OR (t.description ILIKE $3 OR t.category ILIKE $3 OR t.transaction_date::text ILIKE $3 OR t.amount::text ILIKE $3 OR EXISTS (SELECT 1 FROM public.flux_accounts a WHERE a.id=t.account_id AND a.user_id=t.user_id AND a.name ILIKE $3)))", [uid, transactionMonth, transactionPattern]),
     p.query("SELECT COALESCE(SUM(amount) FILTER (WHERE type='income' AND transfer_group IS NULL),0)::float8 AS income, COALESCE(SUM(amount) FILTER (WHERE type='expense' AND transfer_group IS NULL),0)::float8 AS expense, COUNT(*) FILTER (WHERE type='income' AND transfer_group IS NULL)::int AS income_count, COUNT(*) FILTER (WHERE type='expense' AND transfer_group IS NULL)::int AS expense_count FROM public.flux_transactions WHERE user_id=$1 AND transaction_date >= to_date($2 || '-01','YYYY-MM-DD') AND transaction_date < (to_date($2 || '-01','YYYY-MM-DD') + INTERVAL '1 month')", [uid, currentMonth]),
     p.query("SELECT COALESCE(SUM(amount) FILTER (WHERE type='income' AND transfer_group IS NULL),0)::float8 AS income, COALESCE(SUM(amount) FILTER (WHERE type='expense' AND transfer_group IS NULL),0)::float8 AS expense, COUNT(*) FILTER (WHERE transfer_group IS NULL)::int AS movement_count FROM public.flux_transactions WHERE user_id=$1 AND transaction_date >= to_date($2 || '-01','YYYY-MM-DD') AND transaction_date < (to_date($2 || '-01','YYYY-MM-DD') + INTERVAL '1 month')", [uid, reportMonth]),
     p.query("SELECT to_char(date_trunc('month',transaction_date),'YYYY-MM') AS key, COALESCE(SUM(amount) FILTER (WHERE type='income' AND transfer_group IS NULL),0)::float8 AS income, COALESCE(SUM(amount) FILTER (WHERE type='expense' AND transfer_group IS NULL),0)::float8 AS expense FROM public.flux_transactions WHERE user_id=$1 AND transaction_date >= (to_date($2 || '-01','YYYY-MM-DD') - INTERVAL '5 months')::date AND transaction_date < (to_date($2 || '-01','YYYY-MM-DD') + INTERVAL '1 month') GROUP BY date_trunc('month',transaction_date) ORDER BY date_trunc('month',transaction_date)", [uid, currentMonth]),
@@ -131,7 +135,7 @@ async function getData(uid: string, options: { limit?: number; offset?: number; 
   const expenseByCategory = categoryRows.rows.map(row=>({name:row.category,amount:Number(row.amount),color:categories.rows.find(c=>c.name===row.category&&c.type==="expense")?.color||"#A9B4BE"}));
   const reportCategoryRows = await p.query("SELECT category,COALESCE(SUM(amount),0)::float8 AS amount FROM public.flux_transactions WHERE user_id=$1 AND type='expense' AND transfer_group IS NULL AND transaction_date >= to_date($2 || '-01','YYYY-MM-DD') AND transaction_date < (to_date($2 || '-01','YYYY-MM-DD') + INTERVAL '1 month') GROUP BY category ORDER BY SUM(amount) DESC", [uid, reportMonth]);
   const reportExpenseByCategory = reportCategoryRows.rows.map(row=>({name:row.category,amount:Number(row.amount),color:categories.rows.find(c=>c.name===row.category&&c.type==="expense")?.color||"#A9B4BE"}));
-  const today = new Date().toISOString().slice(0,10);
+  const today = currentDate;
   const budgetUsageEntries = await Promise.all(budgets.rows.filter(b=>b.is_active).map(async (budget: {id:string;category:string;period:string;starts_on:string})=>{
     const start = budgetPeriodStart(String(budget.starts_on).slice(0,10),budget.period,today);
     const used = await p.query("SELECT COALESCE(SUM(amount),0)::float8 AS used FROM public.flux_transactions WHERE user_id=$1 AND type='expense' AND transfer_group IS NULL AND category=$2 AND transaction_date >= $3::date AND transaction_date <= $4::date",[uid,budget.category,start,today]);
@@ -163,11 +167,12 @@ export async function GET(req: NextRequest) {
     const rawOffset = Number.parseInt(params.get("offset") || "0", 10);
     const month = params.get("month");
     const transactionMonth = params.get("transactionMonth");
+    const transactionSearch = String(params.get("transactionSearch") || "").trim().slice(0,100);
     if (month && !validMonth(month)) return fail("El mes solicitado no es válido.", 400);
     if (transactionMonth && !validMonth(transactionMonth)) return fail("El mes del historial no es válido.", 400);
     const limit = Number.isFinite(rawLimit) ? Math.min(250, Math.max(1, rawLimit)) : 100;
     const offset = Number.isFinite(rawOffset) ? Math.min(1_000_000, Math.max(0, rawOffset)) : 0;
-    return NextResponse.json({ ok: true, finance: await getData(uid, {limit, offset, reportMonth: month ?? undefined, transactionMonth: transactionMonth ?? undefined}), database: "connected" }, { headers: noCache });
+    return NextResponse.json({ ok: true, finance: await getData(uid, {limit, offset, reportMonth: month ?? undefined, transactionMonth: transactionMonth ?? undefined, transactionSearch: transactionSearch || undefined}), database: "connected" }, { headers: noCache });
   } catch (error) {
     console.error("DEMian FLUX GET:", error);
     return NextResponse.json({ ok: false, error: "No fue posible conectar con el módulo financiero FLUX." }, { status: 503, headers: noCache });
@@ -190,7 +195,7 @@ export async function POST(req: NextRequest) {
       await ownCategory(client, category, type, uid);
       const account = await ownAccount(client, b.accountId, uid);
       const amount = positiveAmount(b.amount);
-      const date = dateOrNull(b.date) ?? new Date().toISOString().slice(0,10);
+      const date = dateOrNull(b.date) ?? mexicoDateKey();
       const { rows } = await client.query(`INSERT INTO public.flux_transactions(id,user_id,type,category,description,amount,transaction_date,account_id)
         VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
         [randomUUID(),uid,type,category,short(b.description,500),amount,date,account?.id ?? null]);
@@ -202,7 +207,7 @@ export async function POST(req: NextRequest) {
       const to = await ownAccount(client,b.toAccountId,uid);
       if (!from || !to || from.id===to.id) throw new Error("Elige dos cuentas diferentes para transferir.");
       const amount=positiveAmount(b.amount);
-      const date=dateOrNull(b.date)??new Date().toISOString().slice(0,10);
+      const date=dateOrNull(b.date)??mexicoDateKey();
       const group=randomUUID();
       await client.query(`INSERT INTO public.flux_transactions(id,user_id,type,category,description,amount,transaction_date,account_id,transfer_group)
         VALUES($1,$2,'expense','Transferencia',$3,$4,$5,$6,$7),($8,$2,'income','Transferencia',$9,$4,$5,$10,$7)`,
@@ -221,7 +226,7 @@ export async function POST(req: NextRequest) {
       if(!name||!["income","expense"].includes(type)) throw new Error("Completa el nombre y tipo de categoría.");
       await client.query("INSERT INTO public.flux_categories(id,user_id,name,type,color,icon,is_default) VALUES($1,$2,$3,$4,$5,$6,false)",[randomUUID(),uid,name,type,color,icon]);
     } else if (action === "budget.create") {
-      const name=short(b.name,80), category=short(b.category,80), period=short(b.period,16), amount=positiveAmount(b.amountLimit), starts=dateOrNull(b.startsOn)??new Date().toISOString().slice(0,10);
+      const name=short(b.name,80), category=short(b.category,80), period=short(b.period,16), amount=positiveAmount(b.amountLimit), starts=dateOrNull(b.startsOn)??mexicoDateKey();
       if(!name||!category||!["weekly","monthly","yearly"].includes(period)) throw new Error("Completa nombre, categoría, importe y periodo.");
       await client.query("INSERT INTO public.flux_budgets(id,user_id,name,category,amount_limit,period,starts_on,is_active) VALUES($1,$2,$3,$4,$5,$6,$7,true)",[randomUUID(),uid,name,category,amount,period,starts]);
     } else if (action === "goal.create") {

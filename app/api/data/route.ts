@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Pool } from "pg";
 import { ensureIdentitySchema } from "../../../lib/identity";
+import { mexicoDateKey } from "../../../lib/date-rules.mjs"
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -37,7 +38,7 @@ function safeItem(r: Record<string, unknown>) {
     doneThisWeek: r.done_this_week === true,
     doneThisMonth: r.done_this_month === true,
     doneForPeriod: String(r.frequency ?? "").toLowerCase() === "semanal" ? r.done_this_week === true : String(r.frequency ?? "").toLowerCase() === "mensual" ? r.done_this_month === true : r.done_today === true,
-    isDueToday: String(r.frequency ?? "").toLowerCase() === "personalizado" ? false : String(r.frequency ?? "").toLowerCase() === "entre semana" ? new Date(String(r.reference_date ?? new Date().toISOString().slice(0,10)) + "T12:00:00Z").getUTCDay() > 0 && new Date(String(r.reference_date ?? new Date().toISOString().slice(0,10)) + "T12:00:00Z").getUTCDay() < 6 : true,
+    isDueToday: String(r.frequency ?? "").toLowerCase() === "personalizado" ? false : String(r.frequency ?? "").toLowerCase() === "entre semana" ? new Date(String(r.reference_date ?? mexicoDateKey()) + "T12:00:00Z").getUTCDay() > 0 && new Date(String(r.reference_date ?? mexicoDateKey()) + "T12:00:00Z").getUTCDay() < 6 : true,
     pinned: r.kind === "note" && r.status === "pinned",
     createdAt: r.created_at
   };
@@ -62,7 +63,7 @@ export async function GET(req: NextRequest) {
   try {
     await ready();
     const url = new URL(req.url);
-    const date = validDate(url.searchParams.get("date")) ?? new Date().toISOString().slice(0, 10);
+    const date = validDate(url.searchParams.get("date")) ?? mexicoDateKey();
     const requestedKind = url.searchParams.get("kind");
     if (requestedKind && !["task", "transaction", "habit", "note"].includes(requestedKind)) return NextResponse.json({ ok: false, error: "Tipo de registro inválido." }, { status: 400, headers: noCache });
     const parsedLimit = Number.parseInt(url.searchParams.get("limit") || "500", 10);
@@ -101,7 +102,7 @@ export async function POST(req: NextRequest) {
       "INSERT INTO public.demian_items(user_id,kind,title,details,amount,category,due_date,status,frequency) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *",
       [uid, kind, title, String(b.details ?? "").slice(0, 5000), amount, String(b.category ?? "").trim().slice(0, 80), dueDate, status, String(b.frequency ?? "").slice(0, 80)]
     );
-    const date = validDate(b.logDate) ?? new Date().toISOString().slice(0, 10);
+    const date = validDate(b.logDate) ?? mexicoDateKey();
     const selected = await pool().query(itemsSql() + " WHERE i.user_id=$2 AND i.id=$3", [date, uid, rows[0].id]);
     return NextResponse.json({ ok: true, item: safeItem(selected.rows[0]) }, { status: 201, headers: noCache });
   } catch (e) {
@@ -120,7 +121,7 @@ export async function PATCH(req: NextRequest) {
     const found = await pool().query("SELECT * FROM public.demian_items WHERE id=$1 AND user_id=$2 LIMIT 1", [id, uid]);
     const existing = found.rows[0] as Record<string, unknown> | undefined;
     if (!existing) return NextResponse.json({ ok: false, error: "Registro no encontrado." }, { status: 404, headers: noCache });
-    const logDate = validDate(b.logDate) ?? new Date().toISOString().slice(0, 10);
+    const logDate = validDate(b.logDate) ?? mexicoDateKey();
 
     if (existing.kind === "habit" && typeof b.doneToday === "boolean") {
       const frequency = String(existing.frequency ?? "").toLocaleLowerCase("es");

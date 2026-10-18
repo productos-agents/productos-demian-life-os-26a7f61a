@@ -95,13 +95,15 @@ export default function FinanceModule({initialSearch=""}:{initialSearch?:string}
 
   const refresh=useCallback(async()=>{
     try{
-      const r=await fetch("/api/finance?limit=100&offset=0&month="+encodeURIComponent(periodFilter),{cache:"no-store"});
+      const term=initialSearch.trim();
+      const searchParam=term?"&transactionSearch="+encodeURIComponent(term):"";
+      const r=await fetch("/api/finance?limit=100&offset=0&month="+encodeURIComponent(periodFilter)+searchParam,{cache:"no-store"});
       const j=await r.json();
       if(!r.ok||!j.ok)throw new Error(j.error||"No se pudo cargar FLUX.");
       setData(j.finance);setError("");
     }catch(e){setError(e instanceof Error?e.message:"No se pudo cargar el módulo financiero.");}
     finally{setLoading(false);}
-  },[periodFilter]);
+  },[periodFilter,initialSearch]);
   useEffect(()=>{void refresh();},[refresh]);
   useEffect(()=>{setSearch(initialSearch);if(initialSearch.trim())setTab("transactions");},[initialSearch]);
   useEffect(()=>{
@@ -135,7 +137,9 @@ export default function FinanceModule({initialSearch=""}:{initialSearch?:string}
     if(!data?.transactionsHasMore||loadingMoreTransactions)return;
     setLoadingMoreTransactions(true);
     try{
-      const r=await fetch("/api/finance?limit=100&offset="+data.transactionsNextOffset+"&month="+encodeURIComponent(periodFilter),{cache:"no-store"});
+      const term=initialSearch.trim();
+      const searchParam=term?"&transactionSearch="+encodeURIComponent(term):"";
+      const r=await fetch("/api/finance?limit=100&offset="+data.transactionsNextOffset+"&month="+encodeURIComponent(periodFilter)+searchParam,{cache:"no-store"});
       const j=await r.json();
       if(!r.ok||!j.ok)throw new Error(j.error||"No se pudieron cargar más movimientos.");
       setData(previous=>{

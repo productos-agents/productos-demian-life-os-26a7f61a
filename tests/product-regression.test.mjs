@@ -40,6 +40,18 @@ test('global search queries full personal and FLUX history server-side with owne
 });
 
 
+test('financial transaction search queries full history and uses Mexico-local date boundaries', async () => {
+  const route = await read('../app/api/finance/route.ts');
+  const module = await read('../app/components/FinanceModule.tsx');
+  const { mexicoDateKey } = await import('../lib/date-rules.mjs');
+  assert.match(route, /transactionSearch\?: string/);
+  assert.match(route, /t\.description ILIKE \$5/);
+  assert.match(route, /COUNT\(\*\)::int AS total FROM public\.flux_transactions t/);
+  assert.match(module, /transactionSearch=/);
+  assert.equal(mexicoDateKey(new Date('2026-01-01T02:30:00.000Z')), '2025-12-31');
+  assert.equal(mexicoDateKey(new Date('2026-10-18T18:00:00.000Z')), '2026-10-18');
+});
+
 test('habit completion respects daily, weekly, monthly and weekday frequencies', async () => {
   const route = await read('../app/api/data/route.ts');
   const wellness = await read('../app/components/WellnessModule.tsx');
