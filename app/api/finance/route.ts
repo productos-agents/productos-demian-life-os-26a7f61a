@@ -61,7 +61,7 @@ async function ownCategory(client: Pool | PoolClient, name: string, type: string
 }
 function validMonth(value: string | null | undefined): string | null {
   const month = String(value ?? "");
-  return /^\\d{4}-(0[1-9]|1[0-2])$/.test(month) ? month : null;
+  return /^\d{4}-(0[1-9]|1[0-2])$/.test(month) ? month : null;
 }
 async function getData(uid: string, options: { limit?: number; offset?: number; reportMonth?: string } = {}) {
   const p = db();
