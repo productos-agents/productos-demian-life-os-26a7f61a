@@ -167,10 +167,56 @@ export default function DotDemianModule({ pendingAttachment = null }: { pendingA
       if (data.refreshData) window.dispatchEvent(new Event("demian:data-changed"));
       await refreshConversations();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo obtener una respuesta. Inténtalo de nuevo.");
+      setError(attachmentId
+        ? "El archivo original quedó subido. No pude organizarlo ahora; vuelve a intentarlo desde Segundo cerebro → Archivos guardados."
+        : e instanceof Error ? e.message : "No se pudo obtener una respuesta. Inténtalo de nuevo.");
     } finally {
       setSending(false);
       input.current?.focus();
+    }
+  }
+
+  useEffect(() => {
+    if (!pendingAttachment || handledAttachmentRef.current === pendingAttachment.id) return;
+    handledAttachmentRef.current = pendingAttachment.id;
+    void sendMessage("Organiza y guarda el archivo «" + pendingAttachment.name + "» en mi Segundo cerebro.", pendingAttachment.id);
+  }, [pendingAttachment?.id]);
+
+  async function handleFileSelection(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || uploading || sending) return;
+    if (file.size < 1 || file.size > 8 * 1024 * 1024) {
+      setError("Cada archivo debe pesar como máximo 8 MB.");
+      return;
+    }
+    const extension = file.name.toLowerCase().split(".").pop() || "";
+    const supported = ["pdf","docx","xlsx","xls","csv","tsv","txt","md","json","html","xml","yaml","yml","log"];
+    if (!supported.includes(extension)) {
+      setError("Puedo recibir PDF, Word, Excel, CSV, TSV, texto, Markdown, JSON, HTML y XML.");
+      return;
+    }
+    setUploading(true);
+    setError("");
+    try {
+      let extractedText = "";
+      try { extractedText = await extractDocumentText(file); }
+      catch { extractedText = ""; }
+      const form = new FormData();
+      form.append("file", file);
+      form.append("extractedText", extractedText);
+      const response = await fetch("/api/brain/files", { method: "POST", body: form, cache: "no-store" });
+      const payload = await response.json().catch(() => ({})) as { ok?: boolean; error?: string; file?: { id: string; name: string } };
+      if (!response.ok || !payload.ok || !payload.file?.id) throw new Error(payload.error || "No se pudo guardar el archivo original.");
+      window.dispatchEvent(new Event("demian:data-changed"));
+      const notice = extractedText
+        ? "Revisa, clasifica y guarda en mi Segundo cerebro el archivo «" + file.name + "»."
+        : "Guarda y clasifica en mi Segundo cerebro el archivo «" + file.name + "». No se pudo extraer texto; organiza solo con el nombre y el tipo, sin inventar el contenido.";
+      await sendMessage(notice, payload.file.id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo subir el archivo.");
+    } finally {
+      setUploading(false);
     }
   }
 
