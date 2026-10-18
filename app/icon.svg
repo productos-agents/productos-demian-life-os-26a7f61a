@@ -1,1 +1,31 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="#090b0d"/><path d="M16 45V19h7l18 16V19h7v26h-7L23 29v16z" fill="#c6cbd0"/><circle cx="49" cy="15" r="4" fill="#b4ff39"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+<defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#09182D"/><stop offset=".48" stop-color="#05080E"/><stop offset="1" stop-color="#020306"/></linearGradient>
+  <linearGradient id="silver" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#FFFFFF"/><stop offset=".22" stop-color="#ADB9C9"/><stop offset=".45" stop-color="#34465D"/><stop offset=".72" stop-color="#DAE5F4"/><stop offset="1" stop-color="#506179"/></linearGradient>
+  <linearGradient id="silver2" x1="0" y1="0" x2="0.8" y2="1"><stop stop-color="#F5F8FF"/><stop offset=".4" stop-color="#8094AE"/><stop offset="1" stop-color="#202E43"/></linearGradient>
+  <linearGradient id="blue" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#62F7FF"/><stop offset=".26" stop-color="#119DFF"/><stop offset=".65" stop-color="#075EFF"/><stop offset="1" stop-color="#00246F"/></linearGradient>
+  <radialGradient id="core" cx=".5" cy=".32" r=".8"><stop stop-color="#0B5BE7"/><stop offset=".48" stop-color="#052D81"/><stop offset="1" stop-color="#020816"/></radialGradient>
+  <filter id="glow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="10" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  <filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="22"/></filter>
+</defs>
+<rect width="512" height="512" rx="98" fill="url(#bg)"/>
+<rect x="1.5" y="1.5" width="509" height="509" rx="96" fill="none" stroke="#0C3F86" stroke-opacity=".45" stroke-width="3"/>
+<ellipse cx="255" cy="260" rx="168" ry="164" fill="#0078FF" opacity=".16" filter="url(#soft)"/>
+<!-- Outer metallic hexagonal core -->
+<path d="M256 75 410 164 410 345 256 437 102 345 102 164Z" fill="#06101F" stroke="#132E4F" stroke-width="7"/>
+<!-- Segmented chrome shell, six beveled faces -->
+<path d="M256 75 410 164 344 202 256 151 168 202 102 164Z" fill="url(#silver)" stroke="#EDF5FF" stroke-width="3" stroke-linejoin="round"/>
+<path d="M102 164 168 202 168 309 102 345Z" fill="url(#silver2)" stroke="#E8F3FF" stroke-width="3" stroke-linejoin="round"/>
+<path d="M410 164 344 202 344 309 410 345Z" fill="url(#silver2)" stroke="#6DDCFF" stroke-width="3" stroke-linejoin="round"/>
+<path d="M102 345 168 309 256 361 256 437Z" fill="url(#silver2)" stroke="#D9E5F3" stroke-width="3" stroke-linejoin="round"/>
+<path d="M410 345 344 309 256 361 256 437Z" fill="url(#silver)" stroke="#B5EFFF" stroke-width="3" stroke-linejoin="round"/>
+<!-- Blue illuminated understructure -->
+<path d="M168 202 256 151 344 202 344 309 256 361 168 309Z" fill="#031733" stroke="#087EFF" stroke-width="7" stroke-linejoin="round" filter="url(#glow)"/>
+<path d="M256 151 344 202 256 252 168 202Z" fill="url(#blue)" stroke="#6DF9FF" stroke-width="2.5" stroke-linejoin="round"/>
+<path d="M168 202 256 252 256 361 168 309Z" fill="url(#blue)" stroke="#14C8FF" stroke-width="2.5" stroke-linejoin="round"/>
+<path d="M344 202 256 252 256 361 344 309Z" fill="#052E83" stroke="#078AFF" stroke-width="2.5" stroke-linejoin="round"/>
+<!-- Recessed electric-blue hex core -->
+<path d="M256 200 309 231 309 293 256 324 203 293 203 231Z" fill="url(#core)" stroke="#27D9FF" stroke-width="4" stroke-linejoin="round" filter="url(#glow)"/>
+<path d="M256 211 300 237 300 287 256 313 212 287 212 237Z" fill="none" stroke="#80F7FF" stroke-opacity=".7" stroke-width="2"/>
+<circle cx="256" cy="260" r="7" fill="#54EDFF" filter="url(#glow)"/>
+</svg>
