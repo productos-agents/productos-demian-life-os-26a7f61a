@@ -62,9 +62,12 @@ export async function GET(req: NextRequest) {
   try {
     const session = await userSession(req);
     if (!session) return NextResponse.json({ ok: false, error: "Inicia sesión para abrir tu biblioteca." }, { status: 401, headers: noCache() });
+    const term = (new URL(req.url).searchParams.get("q") || "").trim().slice(0, 120);
+    const pattern = "%" + term.replace(/[\\%_]/g, "\\$&") + "%";
+    const condition = term ? " AND (f.file_name ILIKE $2 OR f.summary ILIKE $2 OR f.category ILIKE $2 OR f.extracted_text ILIKE $2)" : "";
     const { rows } = await pool().query(
-      "SELECT f.id,f.file_name,f.content_type,f.file_size,f.summary,f.category,f.status,f.created_at,f.note_id,n.title AS note_title FROM public.demian_brain_files f LEFT JOIN public.demian_items n ON n.id=f.note_id AND n.user_id=f.user_id WHERE f.user_id=$1 ORDER BY f.created_at DESC LIMIT 100",
-      [session.sub]
+      "SELECT f.id,f.file_name,f.content_type,f.file_size,f.summary,f.category,f.status,f.created_at,f.note_id,n.title AS note_title FROM public.demian_brain_files f LEFT JOIN public.demian_items n ON n.id=f.note_id AND n.user_id=f.user_id WHERE f.user_id=$1" + condition + " ORDER BY f.created_at DESC LIMIT 100",
+      term ? [session.sub, pattern] : [session.sub]
     );
     return NextResponse.json({
       ok: true,
