@@ -783,12 +783,46 @@ export async function POST(req: NextRequest) {
     const turn = await askOpenRouterWithTools(instructions, history, Boolean(attachedFile));
     let reply = turn.reply;
     let pendingAction: FinancePendingAction | null = null;
-    if (turn.toolCalls.length > 1) {
+    let recordChanged = false;
+    let fileSaved = false;
+    if (attachedFile) {
+      const organizerCall = turn.toolCalls.find(call => call.function.name === "organize_uploaded_file");
+      const organizer = organizerCall ? toolArgs(organizerCall) : {};
+      const title = assistantText(organizer.title || String(attachedFile.file_name || "Archivo guardado"), 160);
+      const category = assistantText(organizer.category || "Archivos", 80);
+      const summary = assistantText(organizer.summary || "Archivo original guardado en Segundo cerebro. La clasificación automática no se completó en este intento.", 450);
+      const status = organizerCall ? "organized" : "saved-unorganized";
+      const details = "Resumen de DEMIAN: " + summary + "\n\nArchivo original conservado: " + assistantText(attachedFile.file_name, 180) + ".\nEl texto extraído completo está indexado en Archivos guardados y el original puede descargarse desde Segundo cerebro.";
+      const client = await db().connect();
+      try {
+        await client.query("BEGIN");
+        const inserted = await client.query(
+          "INSERT INTO public.demian_items(user_id,kind,title,details,amount,category,due_date,status,frequency) VALUES($1,'note',$2,$3,NULL,$4,NULL,'active','') RETURNING id",
+          [session.sub, title, details, category]
+        );
+        await client.query(
+          "UPDATE public.demian_brain_files SET note_id=$1,summary=$2,category=$3,status=$4 WHERE id=$5 AND user_id=$6",
+          [String(inserted.rows[0].id), summary, category, status, attachmentId, session.sub]
+        );
+        await client.query("COMMIT");
+      } catch (error) {
+        await client.query("ROLLBACK").catch(() => undefined);
+        throw error;
+      } finally {
+        client.release();
+      }
+      reply = organizerCall
+        ? "Listo, guardé «" + assistantText(attachedFile.file_name, 180) + "» en tu Segundo cerebro. Lo organicé en «" + category + "» y preparé un resumen. El archivo original y su texto completo están guardados para volver a consultarlos o descargarlos."
+        : "El archivo original quedó guardado en tu Segundo cerebro, pero no pude clasificarlo automáticamente esta vez. Lo dejé en «Archivos» y puedes pedirme que lo organice de nuevo.";
+      recordChanged = true;
+      fileSaved = true;
+    } else if (turn.toolCalls.length > 1) {
       reply = "Para evitar cambios accidentales, haré una acción por vez. Dime cuál hacemos primero.";
     } else if (turn.toolCalls.length === 1) {
       const execution = await executeAssistantTool(session, turn.toolCalls[0]);
       reply = execution.reply;
       pendingAction = execution.pendingAction || null;
+      recordChanged = execution.mutated === true;
     }
     if (!reply) reply = "Te escucho. ¿Qué te gustaría hacer?";
     await db().query(
@@ -799,7 +833,7 @@ export async function POST(req: NextRequest) {
       "UPDATE public.demian_assistant_conversations SET updated_at=NOW() WHERE id=$1 AND user_id=$2",
       [conversationId, session.sub]
     );
-    return json({ ok: true, conversationId, reply, provider: turn.provider, model: turn.model, pendingAction, refreshData: turn.toolCalls.length === 1 });
+    return json({ ok: true, conversationId, reply, provider: turn.provider, model: turn.model, pendingAction, refreshData: recordChanged || fileSaved, fileSaved });
   } catch (error) {
     console.error("DEMIAN POST:", error instanceof ProviderFailure ? { provider: error.provider, status: error.status } : error);
     return json({ ok: false, error: providerErrorMessage(error) }, error instanceof ProviderFailure && error.status === 429 ? 429 : 502);
