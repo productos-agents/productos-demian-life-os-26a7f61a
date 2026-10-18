@@ -130,7 +130,7 @@ export default function WellnessModule({initialSearch=""}:{initialSearch?:string
       <div className="wellnessDate"><span>HOY</span><b>{fmtDate(todayLocal())}</b><small>{doneToday} de {activeHabits.length} hábitos hechos</small></div>
     </div>
     <div className="wellnessTabs"><button className={view==="checkin"?"active":""} onClick={()=>setView("checkin")}><LineIcon name="heart-pulse" size={15}/>Registro diario</button><button className={view==="habits"?"active":""} onClick={()=>setView("habits")}><LineIcon name="check-circle" size={15}/>Mis hábitos <span>{doneToday}/{activeHabits.length}</span></button></div>
-    {view==="habits"&&<label className="wellnessHabitSearch"><LineIcon name="search" size={15}/><input aria-label="Buscar hábitos" placeholder="Buscar un hábito…" value={habitSearch} onChange={e=>setHabitSearch(e.target.value)}/>{habitSearch&&<button type="button" onClick={()=>setHabitSearch("")} aria-label="Limpiar búsqueda">×</button>}</label>
+    {view==="habits"&&<label className="wellnessHabitSearch"><LineIcon name="search" size={15}/><input aria-label="Buscar hábitos" placeholder="Buscar un hábito…" value={habitSearch} onChange={e=>setHabitSearch(e.target.value)}/>{habitSearch&&<button type="button" onClick={()=>setHabitSearch("")} aria-label="Limpiar búsqueda">×</button>}</label>}
     {error&&<div className="wellnessNotice error" role="alert">{error}<button onClick={()=>setError("")}>×</button></div>}
     {message&&<div className="wellnessNotice" role="status">{message}<button onClick={()=>setMessage("")}>×</button></div>}
     {view==="checkin"?<>
