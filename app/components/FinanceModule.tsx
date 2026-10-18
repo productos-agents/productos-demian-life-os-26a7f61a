@@ -188,7 +188,7 @@ export default function FinanceModule({initialSearch=""}:{initialSearch?:string}
   const displayTx=useMemo(()=>groupTransfers(transactions),[transactions]);
   const visibleTx=useMemo(()=>displayTx.filter(t=>{
     const q=search.toLowerCase();
-    const matches=[t.description,t.category,t.account_name,t.transfer_to_account_name].join(" ").toLowerCase().includes(q);
+    const matches=[t.description,t.category,t.account_name,t.transfer_to_account_name,t.transaction_date,String(t.amount)].join(" ").toLowerCase().includes(q);
     return matches&&(typeFilter==="all"||(typeFilter==="transfer"?!!t.transfer_group:t.type===typeFilter))&&(categoryFilter==="all"||t.category===categoryFilter);
   }),[displayTx,search,typeFilter,categoryFilter]);
   const localExpenseByCategory=useMemo(()=>{

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Pool } from "pg";
 import { ensureIdentitySchema } from "../../../lib/identity";
-import { mexicoDateKey } from "../../../lib/date-rules.mjs"
+import { mexicoDateKey } from "../../../lib/date-rules.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,7 +38,7 @@ function safeItem(r: Record<string, unknown>) {
     doneThisWeek: r.done_this_week === true,
     doneThisMonth: r.done_this_month === true,
     doneForPeriod: String(r.frequency ?? "").toLowerCase() === "semanal" ? r.done_this_week === true : String(r.frequency ?? "").toLowerCase() === "mensual" ? r.done_this_month === true : r.done_today === true,
-    isDueToday: String(r.frequency ?? "").toLowerCase() === "personalizado" ? false : String(r.frequency ?? "").toLowerCase() === "entre semana" ? new Date(String(r.reference_date ?? mexicoDateKey()) + "T12:00:00Z").getUTCDay() > 0 && new Date(String(r.reference_date ?? mexicoDateKey()) + "T12:00:00Z").getUTCDay() < 6 : true,
+    isDueToday: String(r.frequency ?? "").toLowerCase() === "entre semana" ? new Date(String(r.reference_date ?? mexicoDateKey()) + "T12:00:00Z").getUTCDay() > 0 && new Date(String(r.reference_date ?? mexicoDateKey()) + "T12:00:00Z").getUTCDay() < 6 : true,
     pinned: r.kind === "note" && r.status === "pinned",
     createdAt: r.created_at
   };
