@@ -52,9 +52,9 @@ export async function GET(req: NextRequest) {
     const [itemsResult, financeResult, filesResult] = await Promise.allSettled([itemsQuery, financeQuery, filesQuery]);
     if (itemsResult.status === "rejected") throw itemsResult.reason;
     const items = itemsResult.value;
-    if (filesResult.status === "rejected") throw filesResult.reason;
-    const files = filesResult.value;
+    const files = filesResult.status === "fulfilled" ? filesResult.value : { rows: [] as Record<string, unknown>[] };
     const finance = financeResult.status === "fulfilled" ? financeResult.value : { rows: [] as Record<string, unknown>[] };
+    if (filesResult.status === "rejected") console.error("DEMian search: file archive unavailable; returning other matches only.", filesResult.reason);
     if (financeResult.status === "rejected") console.error("DEMian search: financial history unavailable; returning personal matches only.", financeResult.reason);
     const itemResults = items.rows.map((item: Record<string, unknown>) => ({
       id: "item-" + String(item.id),
