@@ -413,7 +413,7 @@ async function executeAssistantTool(
     const mutableFields = ["title", "details", "category", "due_date", "frequency"];
     if (!mutableFields.some(field => Object.prototype.hasOwnProperty.call(args, field))) return { reply: "Dime qué parte quieres cambiar y la actualizo." };
     const kind = String(existing.kind);
-    if (Object.prototype.hasOwnProperty.call(args, "due_date") && kind !== "task") return { reply: "Solo las tareas tienen fecha límite. Puedo actualizar el resto del registro si me indicas qué cambiar." };
+    if (Object.prototype.hasOwnProperty.call(args, "due_date") && kind !== "task" && args.due_date != null && args.due_date !== "") return { reply: "Solo las tareas tienen fecha límite. Puedo actualizar el resto del registro si me indicas qué cambiar." };
     const title = Object.prototype.hasOwnProperty.call(args, "title") ? assistantText(args.title, 160) : String(existing.title ?? "");
     if (!title) return { reply: "El título no puede quedar vacío." };
     const details = Object.prototype.hasOwnProperty.call(args, "details") ? assistantText(args.details, 5000) : String(existing.details ?? "");
