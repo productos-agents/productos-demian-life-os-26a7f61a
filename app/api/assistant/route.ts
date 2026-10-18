@@ -364,16 +364,18 @@ async function loadWorkspaceContext(session: { sub: string; name: string; fid: s
         const monthStart = today.slice(0, 7) + "-01";
         const nextDate = new Date(monthStart + "T12:00:00Z"); nextDate.setUTCMonth(nextDate.getUTCMonth() + 1);
         const nextMonth = nextDate.getUTCFullYear() + "-" + String(nextDate.getUTCMonth() + 1).padStart(2, "0") + "-01";
-        const [totals, accounts, recent] = await Promise.all([
+        const [totals, accounts, recent, categories] = await Promise.all([
           p.query("SELECT COALESCE(SUM(amount) FILTER (WHERE type='income' AND transfer_group IS NULL),0)::float8 AS income,COALESCE(SUM(amount) FILTER (WHERE type='expense' AND transfer_group IS NULL),0)::float8 AS expense,COUNT(*) FILTER (WHERE transfer_group IS NULL)::int AS movements FROM public.flux_transactions WHERE user_id=$1 AND transaction_date >= $2::date AND transaction_date < $3::date", [session.fid, monthStart, nextMonth]),
           p.query("SELECT a.name,a.account_type,a.currency,(a.opening_balance+COALESCE(SUM(CASE WHEN a.account_type='credit' AND t.type='expense' THEN t.amount WHEN a.account_type='credit' AND t.type='income' THEN -t.amount WHEN a.account_type<>'credit' AND t.type='income' THEN t.amount WHEN a.account_type<>'credit' AND t.type='expense' THEN -t.amount ELSE 0 END),0))::float8 AS balance FROM public.flux_accounts a LEFT JOIN public.flux_transactions t ON t.account_id=a.id AND t.user_id=a.user_id WHERE a.user_id=$1 AND a.is_active=true GROUP BY a.id ORDER BY a.created_at ASC", [session.fid]),
-          p.query("SELECT type,category,description,amount::float8 AS amount,transaction_date::text AS date FROM public.flux_transactions WHERE user_id=$1 AND transfer_group IS NULL ORDER BY transaction_date DESC,created_at DESC LIMIT 6", [session.fid])
+          p.query("SELECT type,category,description,amount::float8 AS amount,transaction_date::text AS date FROM public.flux_transactions WHERE user_id=$1 AND transfer_group IS NULL ORDER BY transaction_date DESC,created_at DESC LIMIT 6", [session.fid]),
+          p.query("SELECT name,type FROM public.flux_categories WHERE user_id=$1 ORDER BY type,name LIMIT 100", [session.fid])
         ]);
         const t = totals.rows[0] || {};
         lines.push("Resumen financiero real de la cuenta vinculada a este usuario, MXN, mes en curso: " + JSON.stringify({
           ingresos: Number(t.income || 0), gastos: Number(t.expense || 0), balanceNetoDelMes: Number(t.income || 0) - Number(t.expense || 0), movimientos: Number(t.movements || 0),
           cuentas: accounts.rows.map(row => ({ nombre: assistantText(row.name, 100), tipo: assistantText(row.account_type, 40), moneda: assistantText(row.currency, 10), saldo: Number(row.balance || 0) })),
-          movimientosRecientes: recent.rows.map(row => ({ tipo: assistantText(row.type, 24), categoria: assistantText(row.category, 80), descripcion: assistantText(row.description, 180), importe: Number(row.amount || 0), fecha: assistantText(row.date, 10) }))
+          movimientosRecientes: recent.rows.map(row => ({ tipo: assistantText(row.type, 24), categoria: assistantText(row.category, 80), descripcion: assistantText(row.description, 180), importe: Number(row.amount || 0), fecha: assistantText(row.date, 10) })),
+          categoriasDisponibles: categories.rows.map(row => ({ nombre: assistantText(row.name, 80), tipo: assistantText(row.type, 24) }))
         }) + ".");
       } catch {
         lines.push("No se pudo consultar Finanzas en esta solicitud. No inventes saldos, ingresos, gastos ni movimientos.");
