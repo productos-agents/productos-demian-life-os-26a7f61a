@@ -59,8 +59,16 @@ async function ownCategory(client: Pool | PoolClient, name: string, type: string
   const { rows } = await client.query("SELECT name FROM public.flux_categories WHERE user_id=$1 AND type=$2 AND name=$3 LIMIT 1", [uid, type, name]);
   if (!rows[0]) throw new Error("Selecciona una categoría válida para este tipo de movimiento.");
 }
-async function getData(uid: string) {
+function validMonth(value: string | null | undefined): string | null {
+  const month = String(value ?? "");
+  return /^\\d{4}-(0[1-9]|1[0-2])$/.test(month) ? month : null;
+}
+async function getData(uid: string, options: { limit?: number; offset?: number; reportMonth?: string } = {}) {
   const p = db();
+  const limit = Math.min(250, Math.max(1, Math.trunc(options.limit ?? 100)));
+  const offset = Math.min(1_000_000, Math.max(0, Math.trunc(options.offset ?? 0)));
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  const reportMonth = validMonth(options.reportMonth) ?? currentMonth;
   const [profile, transactions, accounts, categories, budgets, goals, recurring, prefs] = await Promise.all([
     p.query("SELECT id,name,email FROM public.flux_users WHERE id=$1 LIMIT 1", [uid]),
     p.query(`SELECT t.id,t.type,t.category,t.description,t.amount::float8 AS amount,t.transaction_date::text AS transaction_date,t.created_at,
@@ -68,7 +76,7 @@ async function getData(uid: string) {
       FROM public.flux_transactions t
       LEFT JOIN public.flux_accounts a ON a.id=t.account_id AND a.user_id=t.user_id
       LEFT JOIN public.flux_accounts ta ON ta.id=t.transfer_to_account_id AND ta.user_id=t.user_id
-      WHERE t.user_id=$1 ORDER BY t.transaction_date DESC,t.created_at DESC LIMIT 1000`, [uid]),
+      WHERE t.user_id=$1 ORDER BY t.transaction_date DESC,t.created_at DESC,t.id DESC LIMIT $2 OFFSET $3`, [uid, limit, offset]),
     p.query(`SELECT a.id,a.name,a.account_type,a.opening_balance::float8 AS opening_balance,a.currency,a.is_active,
       (a.opening_balance + COALESCE(SUM(CASE WHEN a.account_type='credit' AND t.type='expense' THEN t.amount WHEN a.account_type='credit' AND t.type='income' THEN -t.amount WHEN a.account_type<>'credit' AND t.type='income' THEN t.amount WHEN a.account_type<>'credit' AND t.type='expense' THEN -t.amount ELSE 0 END),0))::float8 AS balance
       FROM public.flux_accounts a
@@ -80,9 +88,33 @@ async function getData(uid: string) {
     p.query("SELECT id,name,type,category,description,amount::float8 AS amount,frequency,next_date::text AS next_date,account_id,is_active,created_at FROM public.flux_recurring_transactions WHERE user_id=$1 ORDER BY is_active DESC,next_date ASC", [uid]),
     p.query("SELECT preferences FROM public.flux_preferences WHERE user_id=$1", [uid])
   ]);
+  const [totalRows, monthRows, reportRows, monthlyRows, categoryRows, historicalRows] = await Promise.all([
+    p.query("SELECT COUNT(*)::int AS total FROM public.flux_transactions WHERE user_id=$1", [uid]),
+    p.query("SELECT COALESCE(SUM(amount) FILTER (WHERE type='income' AND transfer_group IS NULL),0)::float8 AS income, COALESCE(SUM(amount) FILTER (WHERE type='expense' AND transfer_group IS NULL),0)::float8 AS expense, COUNT(*) FILTER (WHERE type='income' AND transfer_group IS NULL)::int AS income_count, COUNT(*) FILTER (WHERE type='expense' AND transfer_group IS NULL)::int AS expense_count FROM public.flux_transactions WHERE user_id=$1 AND transaction_date >= to_date($2 || '-01','YYYY-MM-DD') AND transaction_date < (to_date($2 || '-01','YYYY-MM-DD') + INTERVAL '1 month')", [uid, currentMonth]),
+    p.query("SELECT COALESCE(SUM(amount) FILTER (WHERE type='income' AND transfer_group IS NULL),0)::float8 AS income, COALESCE(SUM(amount) FILTER (WHERE type='expense' AND transfer_group IS NULL),0)::float8 AS expense, COUNT(*) FILTER (WHERE transfer_group IS NULL)::int AS movement_count FROM public.flux_transactions WHERE user_id=$1 AND transaction_date >= to_date($2 || '-01','YYYY-MM-DD') AND transaction_date < (to_date($2 || '-01','YYYY-MM-DD') + INTERVAL '1 month')", [uid, reportMonth]),
+    p.query("SELECT to_char(date_trunc('month',transaction_date),'YYYY-MM') AS key, COALESCE(SUM(amount) FILTER (WHERE type='income' AND transfer_group IS NULL),0)::float8 AS income, COALESCE(SUM(amount) FILTER (WHERE type='expense' AND transfer_group IS NULL),0)::float8 AS expense FROM public.flux_transactions WHERE user_id=$1 AND transaction_date >= (to_date($2 || '-01','YYYY-MM-DD') - INTERVAL '5 months')::date AND transaction_date < (to_date($2 || '-01','YYYY-MM-DD') + INTERVAL '1 month') GROUP BY date_trunc('month',transaction_date) ORDER BY date_trunc('month',transaction_date)", [uid, currentMonth]),
+    p.query("SELECT category,COALESCE(SUM(amount),0)::float8 AS amount FROM public.flux_transactions WHERE user_id=$1 AND type='expense' AND transfer_group IS NULL AND transaction_date >= to_date($2 || '-01','YYYY-MM-DD') AND transaction_date < (to_date($2 || '-01','YYYY-MM-DD') + INTERVAL '1 month') GROUP BY category ORDER BY SUM(amount) DESC", [uid, currentMonth]),
+    p.query("SELECT COUNT(*) FILTER (WHERE transfer_group IS NULL)::int AS movement_count, COALESCE(SUM(amount) FILTER (WHERE transfer_group IS NULL),0)::float8 AS gross_movement_amount FROM public.flux_transactions WHERE user_id=$1", [uid])
+  ]);
+  const total = Number(totalRows.rows[0]?.total ?? 0);
+  const m = monthRows.rows[0] ?? {};
+  const report = reportRows.rows[0] ?? {};
+  const byMonth = new Map(monthlyRows.rows.map(row => [row.key, row]));
+  const monthDate = new Date(currentMonth + "-01T12:00:00Z");
+  const monthlySeries = Array.from({length:6},(_,i)=>{
+    const d = new Date(monthDate); d.setUTCMonth(d.getUTCMonth()-(5-i));
+    const key = d.getUTCFullYear()+"-"+String(d.getUTCMonth()+1).padStart(2,"0");
+    const row = byMonth.get(key);
+    return {key,label:new Intl.DateTimeFormat("es-MX",{month:"short",timeZone:"UTC"}).format(d),income:Number(row?.income??0),expense:Number(row?.expense??0)};
+  });
+  const expenseByCategory = categoryRows.rows.map(row=>({name:row.category,amount:Number(row.amount),color:categories.rows.find(c=>c.name===row.category&&c.type==="expense")?.color||"#A9B4BE"}));
   return {
     profile: profile.rows[0] ? { name: profile.rows[0].name, emailHint: String(profile.rows[0].email ?? "").replace(/^(.).+(@.*)$/, "$1•••$2") } : null,
     transactions: transactions.rows,
+    transactionsTotal: total,
+    transactionsHasMore: offset + transactions.rows.length < total,
+    transactionsNextOffset: offset + transactions.rows.length,
+    summary: { currentMonth, income:Number(m.income??0), expense:Number(m.expense??0), incomeCount:Number(m.income_count??0), expenseCount:Number(m.expense_count??0), reportMonth, reportIncome:Number(report.income??0), reportExpense:Number(report.expense??0), reportMovementCount:Number(report.movement_count??0), monthlySeries, expenseByCategory, allMovementCount:Number(historicalRows.rows[0]?.movement_count??0), grossMovementAmount:Number(historicalRows.rows[0]?.gross_movement_amount??0) },
     accounts: accounts.rows,
     categories: categories.rows,
     budgets: budgets.rows,
@@ -95,7 +127,14 @@ export async function GET(req: NextRequest) {
   try {
     const uid = ownerId(req);
     await ready(uid);
-    return NextResponse.json({ ok: true, finance: await getData(uid), database: "connected" }, { headers: noCache });
+    const params = new URL(req.url).searchParams;
+    const rawLimit = Number.parseInt(params.get("limit") || "100", 10);
+    const rawOffset = Number.parseInt(params.get("offset") || "0", 10);
+    const month = params.get("month");
+    if (month && !validMonth(month)) return fail("El mes solicitado no es válido.", 400);
+    const limit = Number.isFinite(rawLimit) ? Math.min(250, Math.max(1, rawLimit)) : 100;
+    const offset = Number.isFinite(rawOffset) ? Math.min(1_000_000, Math.max(0, rawOffset)) : 0;
+    return NextResponse.json({ ok: true, finance: await getData(uid, {limit, offset, reportMonth: month ?? undefined}), database: "connected" }, { headers: noCache });
   } catch (error) {
     console.error("DEMian FLUX GET:", error);
     return NextResponse.json({ ok: false, error: "No fue posible conectar con el módulo financiero FLUX." }, { status: 503, headers: noCache });
