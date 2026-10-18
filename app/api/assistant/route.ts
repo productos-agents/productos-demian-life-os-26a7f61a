@@ -10,7 +10,7 @@ const globals = globalThis as unknown as { demianAssistantPool?: Pool; demianAss
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
 const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || "openrouter/free";
 // DOT DEMIAN works with OpenRouter when a valid key is configured; otherwise it uses a keyless free gateway.
-const isConfigured = true;
+const isConfigured = Boolean(OPENROUTER_API_KEY);
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 type ProviderAnswer = { reply: string; provider: string; model: string };
@@ -60,7 +60,7 @@ function json(data: unknown, status = 200) {
   return NextResponse.json(data, { status, headers: noCache });
 }
 function configuredProvider() {
-  return OPENROUTER_API_KEY ? "OpenRouter Free" : "IA gratuita sin clave";
+  return OPENROUTER_API_KEY ? "OpenRouter Free" : "OpenRouter Free pendiente de activar";
 }
 const requests = new Map<string, { startedAt: number; count: number }>();
 function allowMessage(userId: string) {
@@ -79,15 +79,11 @@ function allowMessage(userId: string) {
 }
 function providerErrorMessage(error: unknown) {
   if (error instanceof ProviderFailure) {
-    if (error.provider === "OpenRouter") {
-      if (error.status === 429 || error.status === 402) return "OpenRouter Free alcanzó su límite gratuito. Espera un momento y vuelve a intentarlo.";
-      if (error.status === 400 || error.status === 401 || error.status === 403) return "OpenRouter rechazó la clave o el modelo. La configuración del servidor necesita revisión.";
-      return "OpenRouter Free no pudo responder en este momento. Inténtalo de nuevo.";
-    }
-    if (error.status === 429 || error.status === 503) return "El motor gratuito está saturado en este momento. Espera un poco y vuelve a intentarlo.";
-    return "El motor gratuito no pudo responder ahora. Inténtalo de nuevo en un momento.";
+    if (error.status === 429 || error.status === 402) return "OpenRouter Free alcanzó su límite gratuito. Espera un momento y vuelve a intentarlo.";
+    if (error.status === 400 || error.status === 401 || error.status === 403) return "OpenRouter rechazó la clave o el modelo. La configuración del servidor necesita revisión.";
+    return "OpenRouter Free no pudo responder en este momento. Inténtalo de nuevo.";
   }
-  return "No se pudo conectar con el motor gratuito. Inténtalo de nuevo.";
+  return "No se pudo conectar con OpenRouter Free. Inténtalo de nuevo.";
 }
 async function askOpenRouter(instructions: string, history: ChatMessage[]): Promise<ProviderAnswer> {
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -116,33 +112,9 @@ async function askOpenRouter(instructions: string, history: ChatMessage[]): Prom
   if (!reply) throw new ProviderFailure(502, "OpenRouter");
   return { reply, provider: "OpenRouter Free", model: typeof result.model === "string" ? result.model : OPENROUTER_MODEL };
 }
-async function askKeylessFreeAI(instructions: string, history: ChatMessage[]): Promise<ProviderAnswer> {
-  const response = await fetch("https://blockrun.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      model: "nvidia/gpt-oss-20b",
-      messages: [{ role: "system", content: instructions }, ...history],
-      max_tokens: 1400,
-      temperature: 0.7,
-      stream: false
-    }),
-    signal: AbortSignal.timeout(60_000)
-  });
-  const result = await response.json().catch(() => ({})) as Record<string, unknown>;
-  if (!response.ok) throw new ProviderFailure(response.status, "KeylessAI");
-  const choices = Array.isArray(result.choices) ? result.choices as Array<Record<string, unknown>> : [];
-  const first = choices[0] || {};
-  const message = first.message && typeof first.message === "object" ? first.message as Record<string, unknown> : {};
-  const reply = typeof message.content === "string" ? message.content.trim() : "";
-  if (!reply) throw new ProviderFailure(502, "KeylessAI");
-  return { reply, provider: "IA gratuita sin clave", model: typeof result.model === "string" ? result.model : "nvidia/gpt-oss-20b" };
-}
 async function askFreeAI(instructions: string, history: ChatMessage[]): Promise<ProviderAnswer> {
-  if (OPENROUTER_API_KEY) return await askOpenRouter(instructions, history);
-  return await askKeylessFreeAI(instructions, history);
+  if (!OPENROUTER_API_KEY) throw new Error("OpenRouter Free no está configurado en el servidor.");
+  return await askOpenRouter(instructions, history);
 }
 function unauthenticated() {
   return json({ ok: false, error: "Inicia sesión en DEMIAN CORE para usar DOT DEMIAN." }, 401);
