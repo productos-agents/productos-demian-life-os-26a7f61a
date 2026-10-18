@@ -7,7 +7,7 @@ type Role = "user" | "assistant";
 type Message = { id?: number; role: Role; content: string; created_at?: string };
 type Conversation = { id: string; title: string; updated_at: string };
 type ApiError = { ok?: false; error?: string };
-type PendingAttachment = { id: string; name: string } | null;
+type PendingAttachment = { id: string; name: string; attempt?: number } | null;
 type PendingAction = {
   type: "finance.transaction.create" | "finance.transaction.update";
   transactionId?: string;
@@ -177,10 +177,12 @@ export default function DotDemianModule({ pendingAttachment = null }: { pendingA
   }
 
   useEffect(() => {
-    if (!pendingAttachment || handledAttachmentRef.current === pendingAttachment.id) return;
-    handledAttachmentRef.current = pendingAttachment.id;
+    if (!pendingAttachment || loading || !configured || sending) return;
+    const attemptKey = pendingAttachment.id + ":" + String(pendingAttachment.attempt || 0);
+    if (handledAttachmentRef.current === attemptKey) return;
+    handledAttachmentRef.current = attemptKey;
     void sendMessage("Organiza y guarda el archivo «" + pendingAttachment.name + "» en mi Segundo cerebro.", pendingAttachment.id);
-  }, [pendingAttachment?.id]);
+  }, [pendingAttachment?.id, pendingAttachment?.attempt, loading, configured, sending]);
 
   async function handleFileSelection(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
