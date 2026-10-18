@@ -351,6 +351,13 @@ export default function DotDemianModule({ pendingAttachment = null }: { pendingA
             </div>
           )}
 
+          <input
+            ref={fileInput}
+            hidden
+            type="file"
+            accept=".pdf,.docx,.xlsx,.xls,.csv,.tsv,.txt,.md,.json,.html,.xml,.yaml,.yml,.log"
+            onChange={event => void handleFileSelection(event)}
+          />
           <form className="dotDemianComposer" onSubmit={submit}>
             <textarea
               ref={input}
@@ -361,13 +368,18 @@ export default function DotDemianModule({ pendingAttachment = null }: { pendingA
               rows={2}
               maxLength={8000}
               aria-label="Mensaje para DEMIAN"
-              disabled={!configured || sending}
+              disabled={!configured || sending || uploading}
             />
             <div className="dotDemianComposerFoot">
               <small>Enter para enviar · Shift + Enter para una nueva línea</small>
-              <button type="submit" className="dotDemianSend" disabled={!draft.trim() || sending || !configured}>
-                {sending ? "Pensando…" : "Enviar"} <LineIcon name="arrow-up" size={15} />
-              </button>
+              <div className="dotDemianComposerActions">
+                <button type="button" className="dotDemianAttach" onClick={() => fileInput.current?.click()} disabled={!configured || sending || uploading}>
+                  <LineIcon name="cloud-upload" size={15} /> {uploading ? "Leyendo archivo…" : "Adjuntar"}
+                </button>
+                <button type="submit" className="dotDemianSend" disabled={!draft.trim() || sending || uploading || !configured}>
+                  {sending ? "Pensando…" : "Enviar"} <LineIcon name="arrow-up" size={15} />
+                </button>
+              </div>
             </div>
           </form>
           {error && <p className="dotDemianError" role="alert">{error}</p>}
@@ -453,6 +465,9 @@ export default function DotDemianModule({ pendingAttachment = null }: { pendingA
         .dotDemianComposer textarea:disabled{opacity:.65}
         .dotDemianComposerFoot{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:9px}
         .dotDemianComposerFoot small{color:#6f7c84;font-size:8px}
+        .dotDemianComposerActions{display:flex;align-items:center;gap:7px;flex-shrink:0}
+        .dotDemianAttach{display:flex;align-items:center;gap:6px;border:1px solid #354148;border-radius:8px;padding:9px 11px;background:#12181b;color:#b8c2c9;font-size:10px;font-weight:750;cursor:pointer}
+        .dotDemianAttach:disabled{opacity:.5;cursor:not-allowed}
         .dotDemianSend{display:flex;align-items:center;gap:7px;border:0;border-radius:8px;padding:9px 13px;background:var(--green,#b7f35a);color:#0b0e0f;font-size:10px;font-weight:900;cursor:pointer}
         .dotDemianSend:disabled{opacity:.45;cursor:not-allowed}
         .dotDemianError{margin:10px 0 0;padding:10px 12px;border:1px solid #71434a;border-radius:9px;background:#27181a;color:#ffb3b9;font-size:10px;line-height:1.6}
