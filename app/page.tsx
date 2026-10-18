@@ -298,6 +298,10 @@ export default function Home() {
     </aside>
     <section className="main">
       <header className="topbar"><div className="breadcrumb">DEMian <span>/</span> {heading}</div><div className="topActions"><div className="searchBox"><span>⌕</span><input aria-label="Buscar" placeholder="Buscar en tu sistema..." value={query} onChange={e=>setQuery(e.target.value)}/><kbd>⌘ K</kbd></div><button className="roundBtn" title="Actualizar" onClick={()=>void refresh()}>↻</button><span className="avatar">{userInitial}</span></div></header>
+      <section className="pushSetup" aria-label="Configuración de notificaciones">
+        <div className="pushSetupCopy"><b>{pushEnabled?"Notificaciones push activas":"Activa las notificaciones de DEMian"}</b><small>{pushEnabled?"Recibirás tus pausas de bienestar, finanzas, recordatorios y la palabra del día.":"3 pausas de bienestar, 5 pausas financieras, revisión de recordatorios y palabra motivacional cada mañana."}</small></div>
+        <button className="pushSetupButton" onClick={()=>void enableReminders()}>{pushEnabled?"Desactivar":"Activar notificaciones"}</button>
+      </section>
       <div className="content">
         {section==="overview"?<>
           <div className="welcome"><div><p className="eyebrow">{new Intl.DateTimeFormat("es-MX",{weekday:"long"}).format(new Date()).toUpperCase()} · TU CENTRO DE CONTROL</p><h1>Vamos a poner tu vida<br/><span>en orden.</span></h1><p className="subhead">Todo lo importante, en un solo lugar. Un paso a la vez.</p></div><div className="dateCard"><span>HOY</span><b>{new Intl.DateTimeFormat("es-MX",{day:"2-digit",month:"short"}).format(new Date())}</b><small>{new Intl.DateTimeFormat("es-MX",{weekday:"long"}).format(new Date())}</small></div></div>
