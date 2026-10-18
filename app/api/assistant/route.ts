@@ -16,7 +16,8 @@ type ChatMessage = { role: "user" | "assistant"; content: string };
 
 type AssistantToolCall = { id: string; type?: string; function: { name: string; arguments: string } };
 type FinancePendingAction = {
-  type: "finance.transaction.create";
+  type: "finance.transaction.create" | "finance.transaction.update";
+  transactionId?: string;
   transactionType: "income" | "expense";
   amount: number;
   category: string;
