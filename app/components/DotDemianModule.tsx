@@ -122,13 +122,14 @@ export default function DotDemianModule() {
     setDraft("");
     setMessages(previous => [...previous, { role: "user", content: message }]);
     try {
-      const data = await api<{ conversationId: string; reply: string; pendingAction?: PendingAction | null }>("/api/assistant", {
+      const data = await api<{ conversationId: string; reply: string; pendingAction?: PendingAction | null; refreshData?: boolean }>("/api/assistant", {
         method: "POST",
         body: JSON.stringify({ message, conversationId: activeId })
       });
       setActiveId(data.conversationId);
       setMessages(previous => [...previous, { role: "assistant", content: data.reply }]);
       setPendingAction(data.pendingAction || null);
+      if (data.refreshData) window.dispatchEvent(new Event("demian:data-changed"));
       await refreshConversations();
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo obtener una respuesta. Inténtalo de nuevo.");
@@ -153,6 +154,7 @@ export default function DotDemianModule() {
         { role: "assistant", content: data.reply }
       ]);
       setPendingAction(null);
+      window.dispatchEvent(new Event("demian:data-changed"));
       await refreshConversations();
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo confirmar el movimiento. Revisa Finanzas antes de volver a intentarlo.");
