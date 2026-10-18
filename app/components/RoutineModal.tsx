@@ -1,4 +1,5 @@
 "use client";
+import type { CSSProperties } from "react";
 type RoutineKind = "mood" | "money" | "reminder" | "motivation" | null;
 type Props = {
   kind: RoutineKind;
@@ -13,8 +14,8 @@ type Props = {
   onMoney: () => void;
   onReminder: () => void;
 };
-const baseButton: React.CSSProperties = {width:"100%",marginTop:12,border:0,borderRadius:13,padding:14,background:"#b7f35a",color:"#11160c",fontWeight:800,cursor:"pointer"};
-const quietButton: React.CSSProperties = {width:"100%",marginTop:8,border:"1px solid #343d44",borderRadius:13,padding:13,background:"transparent",color:"#e7ebee",cursor:"pointer"};
+const baseButton: CSSProperties = {width:"100%",marginTop:12,border:0,borderRadius:13,padding:14,background:"#b7f35a",color:"#11160c",fontWeight:800,cursor:"pointer"};
+const quietButton: CSSProperties = {width:"100%",marginTop:8,border:"1px solid #343d44",borderRadius:13,padding:13,background:"transparent",color:"#e7ebee",cursor:"pointer"};
 export default function RoutineModal(p:Props) {
   if(!p.kind)return null;
   const moods=["Muy mal","Mal","Regular","Bien","Muy bien"];
