@@ -86,5 +86,5 @@ const art: Record<LineIconName, ReactNode> = {
 };
 
 export default function LineIcon({ name, size = 18, strokeWidth = 1.7, className }: Props) {
-  return <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">{art[name]}</svg>;
+  return <svg className={className ? "lineIcon "+className : "lineIcon"} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">{art[name]}</svg>;
 }
