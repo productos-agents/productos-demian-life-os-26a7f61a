@@ -55,7 +55,7 @@ export default function LoginPage() {
         {mode === "register" && <label htmlFor="confirm">Confirmar contraseña<input id="confirm" name="confirm" type="password" autoComplete="new-password" minLength={10} maxLength={256} required value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="Escríbela otra vez" /></label>}
         {error && <p className="loginError" role="alert">{error}</p>}
         {notice && <p className="loginNotice" role="status">{notice}</p>}
-        <button className="primaryBtn" disabled={busy}>{busy ? "Un momento…" : mode === "register" ? "Crear mi cuenta →" : mode === "legacy" ? "Recuperar espacio anterior →" : "Entrar a DEMian →"}</button>
+        <button className="primaryBtn" disabled={busy}>{busy ? "Un momento…" : mode === "register" ? "Crear mi cuenta →" : mode === "legacy" ? "Recuperar espacio anterior →" : "INICIAR SESIÓN"}</button>
       </form>
       <div className="loginLinks">
         {mode === "login" && <><button type="button" onClick={() => switchMode("register")}>Crear una cuenta nueva</button><button type="button" onClick={() => switchMode("legacy")}>Entrar con la clave anterior</button></>}
@@ -63,8 +63,7 @@ export default function LoginPage() {
         {mode === "legacy" && <button type="button" onClick={() => switchMode("login")}>Volver a iniciar sesión</button>}
       </div>
       <div className="loginFoot"><span className="statusDot connected" /> ACCESO PROTEGIDO · DATOS POR CUENTA</div>
-      <footer className="footer developerSignature loginDeveloperSignature"><span className="signatureCaption">DEMian V1.0 · desarrollado por J D O SERVICES</span><div className="signatureLogo"><img src="/jdo-services-logo.webp" alt="Logotipo oficial JDO Services" className="signatureLogoImage" /></div></footer>
+      <footer className="footer developerSignature loginDeveloperSignature"><span className="signatureCaption">DEMIAN CORE V1.0 · DESARROLLADO POR J D O SERVICES</span><div className="signatureLogo"><img src="/jdo-services-logo.webp" alt="Logotipo oficial JDO Services" className="signatureLogoImage" /></div></footer>
     </section>
-    <small className="loginVersion">DEMIAN CORE · V1.0</small>
   </main>;
 }
