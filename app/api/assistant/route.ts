@@ -454,6 +454,24 @@ async function executeAssistantTool(
   call: AssistantToolCall
 ): Promise<ToolExecution> {
   const args = toolArgs(call);
+  if (call.function.name === "remember_user_fact") {
+    const key = assistantText(args.memory_key, 80).toLowerCase().replace(/[^a-z0-9áéíóúüñ_-]+/g, "_").replace(/^_+|_+$/g, "");
+    const content = assistantText(args.content, 2000);
+    const allowedCategories = new Set(["Preferencias", "Proyectos", "Objetivos", "Contexto"]);
+    const category = allowedCategories.has(String(args.category)) ? String(args.category) : "Contexto";
+    if (!key || !content) return { reply: "Necesito un dato concreto y una clave para guardarlo en tu memoria." };
+    await db().query(
+      "INSERT INTO public.demian_user_memories(id,user_id,memory_key,content,category) VALUES($1,$2,$3,$4,$5) ON CONFLICT(user_id,memory_key) DO UPDATE SET content=EXCLUDED.content,category=EXCLUDED.category,updated_at=NOW()",
+      [randomUUID(), session.sub, key, content, category]
+    );
+    return { reply: "Listo, guardé en tu memoria privada: «" + content.slice(0, 240) + (content.length > 240 ? "…" : "") + "». Podré recuperarlo en futuras conversaciones." };
+  }
+  if (call.function.name === "forget_user_fact") {
+    const key = assistantText(args.memory_key, 80).toLowerCase().replace(/[^a-z0-9áéíóúüñ_-]+/g, "_").replace(/^_+|_+$/g, "");
+    if (!key) return { reply: "Necesito identificar qué memoria quieres borrar." };
+    const result = await db().query("DELETE FROM public.demian_user_memories WHERE user_id=$1 AND memory_key=$2 RETURNING memory_key", [session.sub, key]);
+    return { reply: result.rowCount ? "Listo, eliminé esa memoria de tu cuenta." : "No encontré una memoria con esa clave exacta; no borré nada." };
+  }
   if (call.function.name === "create_record") {
     const kind = String(args.kind || "");
     const title = assistantText(args.title, 160);
