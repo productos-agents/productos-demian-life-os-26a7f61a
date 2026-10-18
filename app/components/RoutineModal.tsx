@@ -1,5 +1,7 @@
 "use client";
 import type { CSSProperties } from "react";
+import LineIcon from "./LineIcon";
+import type { LineIconName } from "./LineIcon";
 type RoutineKind = "mood" | "money" | "reminder" | "motivation" | null;
 type Props = {
   kind: RoutineKind;
@@ -19,6 +21,7 @@ const quietButton: CSSProperties = {width:"100%",marginTop:8,border:"1px solid #
 export default function RoutineModal(p:Props) {
   if(!p.kind)return null;
   const moods=["Muy mal","Mal","Regular","Bien","Muy bien"];
+  const moodIcons:LineIconName[]=["mood-sad","mood-low","mood-neutral","mood-good","mood-happy"];
   return <div role="presentation" style={{position:"fixed",inset:0,zIndex:1000,display:"grid",placeItems:"center",padding:20,background:"rgba(2,4,7,.8)",backdropFilter:"blur(12px)"}} onClick={p.onClose}>
     <section role="dialog" aria-modal="true" aria-labelledby="routine-title" style={{position:"relative",width:"min(100%,460px)",maxHeight:"90vh",overflowY:"auto",border:"1px solid rgba(190,200,210,.2)",borderRadius:24,padding:24,background:"#11161b",boxShadow:"0 24px 90px rgba(0,0,0,.5)",color:"#f3f5f7"}} onClick={e=>e.stopPropagation()}>
       <button aria-label="Cerrar" onClick={p.onClose} style={{position:"absolute",right:14,top:12,border:0,background:"transparent",color:"#aab3bb",fontSize:24,cursor:"pointer"}}>×</button>
@@ -27,7 +30,7 @@ export default function RoutineModal(p:Props) {
         <h2 id="routine-title" style={{fontSize:27,lineHeight:1.15,margin:"8px 0 10px"}}>¿Cómo te sientes en este momento?</h2>
         <p style={{color:"#b6c0c8",fontSize:14,lineHeight:1.55}}>No hay respuestas buenas o malas. Tómate unos segundos para escucharte.</p>
         <div style={{display:"grid",gridTemplateColumns:"repeat(5,minmax(0,1fr))",gap:7,margin:"20px 0"}}>
-          {moods.map((label,i)=><button key={label} onClick={()=>p.setMood(i+1)} aria-pressed={p.mood===i+1} style={{minHeight:72,borderRadius:14,border:p.mood===i+1?"1px solid #b7f35a":"1px solid #343d44",background:p.mood===i+1?"rgba(183,243,90,.13)":"#171e24",color:"#edf2f5",fontSize:10,padding:4,cursor:"pointer"}}><b style={{display:"block",fontSize:22,marginBottom:5}}>{["☹","◔","◯","☺","✦"][i]}</b>{label}</button>)}
+          {moods.map((label,i)=><button key={label} onClick={()=>p.setMood(i+1)} aria-pressed={p.mood===i+1} style={{minHeight:72,borderRadius:14,border:p.mood===i+1?"1px solid #b7f35a":"1px solid #343d44",background:p.mood===i+1?"rgba(183,243,90,.13)":"#171e24",color:"#edf2f5",fontSize:10,padding:4,cursor:"pointer"}}><b className="routineMoodIcon"><LineIcon name={moodIcons[i]} size={24}/></b>{label}</button>)}
         </div>
         <label style={{display:"block",fontSize:12,color:"#c6cdd2"}}>Nota opcional<textarea value={p.note} maxLength={800} onChange={e=>p.setNote(e.target.value)} placeholder="Algo que quieras dejar registrado…" rows={3} style={{display:"block",width:"100%",boxSizing:"border-box",marginTop:8,border:"1px solid #343d44",borderRadius:12,background:"#0b1014",color:"#f3f5f7",padding:12,resize:"vertical"}}/></label>
         <button onClick={p.onSaveMood} style={baseButton}>Guardar cómo me siento</button>
