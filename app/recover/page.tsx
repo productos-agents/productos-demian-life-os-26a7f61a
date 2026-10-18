@@ -11,9 +11,7 @@ export default function RecoveryPage() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  useEffect(() => {
-    setToken(new URLSearchParams(window.location.search).get("token") || "");
-  }, []);
+  useEffect(() => { setToken(new URLSearchParams(window.location.search).get("token") || ""); }, []);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault(); setBusy(true); setError(""); setMessage("");
@@ -35,6 +33,7 @@ export default function RecoveryPage() {
       setError(cause instanceof Error ? cause.message : "No se pudo procesar la solicitud.");
     } finally { setBusy(false); }
   }
+
   return <main className="loginShell">
     <section className="loginCard recoveryCard">
       <p className="eyebrow">DEMIAN CORE · CUENTA</p>

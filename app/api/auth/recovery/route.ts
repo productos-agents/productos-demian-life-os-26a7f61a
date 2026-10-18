@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const noCache = { "Cache-Control": "private, no-store, max-age=0" };
 function json(body: unknown, status = 200) { return NextResponse.json(body, { status, headers: noCache }); }
-function escapeHtml(text: string) { return text.replace(/[&<>\"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[c] || c); }
+function escapeHtml(text: string) { return text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[c] || c); }
 export async function POST(req: NextRequest) {
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.DEMIAN_EMAIL_FROM;
