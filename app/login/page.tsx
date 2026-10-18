@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { APP_VERSION } from "../../lib/app-version";
 
 type Mode = "login" | "register" | "legacy";
@@ -59,11 +60,12 @@ export default function LoginPage() {
         <button className="primaryBtn" disabled={busy}>{busy ? "Un momento…" : mode === "register" ? "Crear mi cuenta →" : mode === "legacy" ? "Recuperar espacio anterior →" : "INICIAR SESIÓN"}</button>
       </form>
       <div className="loginLinks">
-        {mode === "login" && <><button type="button" onClick={() => switchMode("register")}>Crear una cuenta nueva</button><button type="button" onClick={() => switchMode("legacy")}>Entrar con la clave anterior</button></>}
+        {mode === "login" && <><button type="button" onClick={() => switchMode("register")}>Crear una cuenta nueva</button><button type="button" onClick={() => switchMode("legacy")}>Entrar con la clave anterior</button><Link href="/recover">¿Olvidaste tu contraseña?</Link></>}
         {mode === "register" && <button type="button" onClick={() => switchMode("login")}>Ya tengo una cuenta · Iniciar sesión</button>}
         {mode === "legacy" && <button type="button" onClick={() => switchMode("login")}>Volver a iniciar sesión</button>}
       </div>
       <div className="loginFoot"><span className="statusDot connected" /> ACCESO PROTEGIDO · DATOS POR CUENTA</div>
+      <p className="loginPrivacyLink"><Link href="/privacy">Aviso de privacidad y control de datos</Link></p>
       <footer className="footer developerSignature loginDeveloperSignature"><span className="signatureCaption">DEMIAN CORE {APP_VERSION} · DESARROLLADO POR J D O SERVICES</span><div className="signatureLogo"><img src="/jdo-services-logo.webp" alt="Logotipo oficial JDO Services" className="signatureLogoImage" /></div></footer>
     </section>
   </main>;

@@ -32,3 +32,33 @@
 .taskEditButton{font-size:15px!important;padding:4px!important}
 @media(max-width:620px){.globalSearchResults{position:fixed;top:120px;left:14px;right:14px;width:auto;max-height:60vh}.searchBox{min-width:0}.searchBox input{min-width:0}}
 .loadMoreWrap{display:flex;justify-content:center;margin-top:16px}
+
+
+/* DEMIAN CORE privacy and account-recovery surfaces */
+.privacyPage{width:min(940px,calc(100% - 32px));margin:0 auto;padding:42px 0 64px;color:var(--text,#e7edf1)}
+.privacyPage header{margin-bottom:28px}
+.privacyEyebrow{font-size:11px;letter-spacing:.14em;color:var(--accent,#b7f35a);font-weight:800}
+.privacyPage h1{font-size:clamp(30px,5vw,48px);line-height:1.05;margin:12px 0}
+.privacyPage h2{font-size:18px;margin:0 0 10px}
+.privacyPage p{line-height:1.65;color:var(--muted,#aab4bc)}
+.privacyPage>section,.privacyActions>section{padding:20px;margin:14px 0;border:1px solid var(--border,#30383f);border-radius:16px;background:rgba(255,255,255,.025)}
+.privacyPage a,.recoveryCard a{color:var(--accent,#b7f35a);text-underline-offset:3px}
+.privacyActions{display:grid;gap:14px;margin-top:24px}
+.privacyActions button{border:1px solid var(--border,#46515a);border-radius:10px;padding:11px 15px;background:#171d21;color:var(--text,#e7edf1);font-weight:700;cursor:pointer}
+.privacyActions button:disabled{opacity:.55;cursor:wait}
+.privacyActions form{display:grid;gap:13px}
+.privacyActions label{display:grid;gap:6px;color:var(--muted,#aab4bc);font-size:13px}
+.privacyActions input,.privacyActions select,.privacyActions textarea,.privacyAdmin textarea,.privacyAdmin select{width:100%;box-sizing:border-box;border:1px solid var(--border,#3b454d);border-radius:9px;padding:10px;background:#101518;color:var(--text,#e7edf1)}
+.privacyMessage{padding:14px;border:1px solid var(--border,#46515a);border-radius:10px;overflow-wrap:anywhere}
+.privacyPage footer{display:flex;flex-wrap:wrap;gap:14px;justify-content:space-between;margin-top:28px;font-size:12px}
+.loginPrivacyLink{text-align:center;font-size:12px;margin:8px 0}
+.recoveryCard>p a{font-size:13px}
+.recoveryHint{font-size:12px;line-height:1.5;color:var(--muted,#aab4bc)}
+.privacyAdmin{width:min(1040px,calc(100% - 32px));margin:0 auto;padding:36px 0 60px;color:var(--text,#e7edf1)}
+.privacyAdmin header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+.privacyAdmin h1{font-size:32px}
+.privacyRequestCard{display:grid;gap:12px;padding:18px;margin:14px 0;border:1px solid var(--border,#30383f);border-radius:14px;background:rgba(255,255,255,.025)}
+.privacyRequestMeta{display:flex;flex-wrap:wrap;gap:8px;color:var(--muted,#aab4bc);font-size:12px}
+.privacyRequestActions{display:flex;flex-wrap:wrap;gap:8px}
+.privacyRequestActions button,.privacyAdmin button{border:1px solid var(--border,#46515a);border-radius:9px;padding:9px 12px;background:#171d21;color:var(--text,#e7edf1)}
+@media(max-width:600px){.privacyPage{padding-top:24px}.privacyPage>section,.privacyActions>section{padding:16px}.privacyPage footer{flex-direction:column}}
