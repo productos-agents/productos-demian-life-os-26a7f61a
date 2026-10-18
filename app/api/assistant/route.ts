@@ -709,12 +709,17 @@ export async function POST(req: NextRequest) {
     const message = String(body.message || "").trim();
     const confirmAction = body.confirmAction;
     const isFinancialConfirmation = Boolean(confirmAction);
+    const attachmentId = String(body.attachmentId || "");
+    const isAttachment = Boolean(attachmentId);
     if ((!message && !isFinancialConfirmation) || message.length > 8000) return json({ ok: false, error: "Escribe un mensaje de hasta 8,000 caracteres." }, 400);
     let conversationId = String(body.conversationId || "");
     if (conversationId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(conversationId)) {
       return json({ ok: false, error: "Conversación inválida." }, 400);
     }
     if (isFinancialConfirmation && !conversationId) return json({ ok: false, error: "Abre la conversación que contiene la propuesta antes de confirmarla." }, 400);
+    if (isAttachment && (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(attachmentId) || isFinancialConfirmation)) {
+      return json({ ok: false, error: "El archivo adjunto no es válido para esta solicitud." }, 400);
+    }
     if (conversationId) {
       const owner = await db().query("SELECT id FROM public.demian_assistant_conversations WHERE id=$1 AND user_id=$2 LIMIT 1", [conversationId, session.sub]);
       if (!owner.rows[0]) return json({ ok: false, error: "Conversación no encontrada." }, 404);
@@ -724,6 +729,17 @@ export async function POST(req: NextRequest) {
         "INSERT INTO public.demian_assistant_conversations(id,user_id,title) VALUES($1,$2,$3)",
         [conversationId, session.sub, message.slice(0, 72)]
       );
+    }
+
+    let attachedFile: Record<string, unknown> | null = null;
+    if (isAttachment) {
+      const foundFile = await db().query(
+        "SELECT id,file_name,content_type,file_size,extracted_text,status FROM public.demian_brain_files WHERE id=$1 AND user_id=$2 LIMIT 1",
+        [attachmentId, session.sub]
+      );
+      attachedFile = foundFile.rows[0] as Record<string, unknown> | undefined || null;
+      if (!attachedFile) return json({ ok: false, error: "No encuentro ese archivo en tu biblioteca privada." }, 404);
+      if (String(attachedFile.status) === "organized") return json({ ok: false, error: "Ese archivo ya está organizado en tu Segundo cerebro." }, 409);
     }
 
     if (isFinancialConfirmation) {
