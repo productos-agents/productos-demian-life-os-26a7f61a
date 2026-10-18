@@ -593,7 +593,10 @@ async function commitFinancialAction(
 ): Promise<{ ok: true; reply: string } | { ok: false; error: string }> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return { ok: false, error: "La confirmación no es válida. Vuelve a pedirle a DEMIAN que prepare el movimiento." };
   const a = value as Record<string, unknown>;
-  if (a.type !== "finance.transaction.create" || !session.fid) return { ok: false, error: "No se pudo confirmar este movimiento para la cuenta actual." };
+  if ((a.type !== "finance.transaction.create" && a.type !== "finance.transaction.update") || !session.fid) return { ok: false, error: "No se pudo confirmar este movimiento para la cuenta actual." };
+  if (a.type === "finance.transaction.update" && (typeof a.transactionId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(a.transactionId))) {
+    return { ok: false, error: "No se pudo identificar el movimiento que quieres actualizar. Vuelve a preparar los cambios." };
+  }
   const type = String(a.transactionType || "");
   const amount = Number(a.amount);
   const category = assistantText(a.category, 80);
@@ -615,6 +618,22 @@ async function commitFinancialAction(
     if (!accounts.rows[0]) {
       await client.query("ROLLBACK");
       return { ok: false, error: "La cuenta ya no está disponible. Vuelve a preparar el movimiento con DEMIAN." };
+    }
+    if (a.type === "finance.transaction.update") {
+      const current = await client.query(
+        "SELECT id,type FROM public.flux_transactions WHERE id=$1 AND user_id=$2 AND transfer_group IS NULL FOR UPDATE",
+        [a.transactionId, session.fid]
+      );
+      if (!current.rows[0] || current.rows[0].type !== type) {
+        await client.query("ROLLBACK");
+        return { ok: false, error: "El movimiento ya no está disponible o cambió. Vuelve a prepararlo antes de confirmar." };
+      }
+      await client.query(
+        "UPDATE public.flux_transactions SET category=$1,description=$2,amount=$3,transaction_date=$4,account_id=$5 WHERE id=$6 AND user_id=$7 AND transfer_group IS NULL",
+        [String(cats.rows[0].name), description, amount, date, accounts.rows[0].id, a.transactionId, session.fid]
+      );
+      await client.query("COMMIT");
+      return { ok: true, reply: "Listo, actualicé el " + (type === "expense" ? "gasto" : "ingreso") + " de $" + amount.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " MXN en «" + String(cats.rows[0].name) + "», desde «" + String(accounts.rows[0].name) + "», con fecha " + date + "." };
     }
     await client.query(
       "INSERT INTO public.flux_transactions(id,user_id,type,category,description,amount,transaction_date,account_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8)",
