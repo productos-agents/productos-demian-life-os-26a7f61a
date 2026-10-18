@@ -138,6 +138,29 @@ export default function DotDemianModule() {
     }
   }
 
+  async function confirmPendingAction() {
+    if (!pendingAction || !activeId || sending) return;
+    setSending(true);
+    setError("");
+    try {
+      const data = await api<{ conversationId: string; reply: string }>("/api/assistant", {
+        method: "POST",
+        body: JSON.stringify({ conversationId: activeId, confirmAction: pendingAction })
+      });
+      setMessages(previous => [
+        ...previous,
+        { role: "user", content: "Confirmo el movimiento financiero propuesto." },
+        { role: "assistant", content: data.reply }
+      ]);
+      setPendingAction(null);
+      await refreshConversations();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo confirmar el movimiento. Revisa Finanzas antes de volver a intentarlo.");
+    } finally {
+      setSending(false);
+    }
+  }
+
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     void sendMessage();
@@ -222,6 +245,29 @@ export default function DotDemianModule() {
             <div className="dotDemianBottomAnchor" />
           </div>
 
+          {pendingAction && (
+            <div className="dotDemianActionConfirm" role="group" aria-label="Confirmar movimiento financiero">
+              <div className="dotDemianActionConfirmHead">
+                <span><LineIcon name="wallet" size={17} /></span>
+                <div>
+                  <small>CONFIRMA ANTES DE GUARDAR</small>
+                  <b>{pendingAction.transactionType === "expense" ? "Registrar gasto" : "Registrar ingreso"}</b>
+                </div>
+              </div>
+              <strong className="dotDemianActionAmount">${pendingAction.amount.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MXN</strong>
+              <p>{pendingAction.description}</p>
+              <dl>
+                <div><dt>Categoría</dt><dd>{pendingAction.category}</dd></div>
+                <div><dt>Cuenta</dt><dd>{pendingAction.accountName}</dd></div>
+                <div><dt>Fecha</dt><dd>{pendingAction.date}</dd></div>
+              </dl>
+              <div className="dotDemianActionButtons">
+                <button type="button" onClick={() => void confirmPendingAction()} disabled={sending || !activeId}>{sending ? "Guardando…" : "Confirmar y registrar"}</button>
+                <button type="button" onClick={() => setPendingAction(null)} disabled={sending}>Cancelar</button>
+              </div>
+            </div>
+          )}
+
           <form className="dotDemianComposer" onSubmit={submit}>
             <textarea
               ref={input}
@@ -272,6 +318,21 @@ export default function DotDemianModule() {
         .dotDemianHistoryPrivacy{display:flex;gap:7px;align-items:flex-start;margin-top:auto;padding-top:12px;border-top:1px solid #293238;color:#809099;font-size:9px;line-height:1.5}
         .dotDemianHistoryPrivacy :global(svg){color:var(--green,#b7f35a);flex-shrink:0}
         .dotDemianChat{display:flex;flex-direction:column;min-height:560px;overflow:hidden}
+        .dotDemianActionConfirm{margin:12px 14px 0;padding:13px;border:1px solid color-mix(in srgb,var(--green,#b7f35a) 40%,#30383f);border-radius:12px;background:linear-gradient(145deg,#171e1c,#101515);color:#e4ece8}
+        .dotDemianActionConfirmHead{display:flex;align-items:center;gap:9px}
+        .dotDemianActionConfirmHead>span{display:grid;place-items:center;width:32px;height:32px;border:1px solid #3b4a44;border-radius:9px;color:var(--green,#b7f35a)}
+        .dotDemianActionConfirmHead small{display:block;color:#8eaa9e;font-size:8px;letter-spacing:.12em;font-weight:800}
+        .dotDemianActionConfirmHead b{display:block;margin-top:3px;font-size:12px}
+        .dotDemianActionAmount{display:block;margin-top:12px;font-size:25px;letter-spacing:-.03em}
+        .dotDemianActionConfirm p{margin:5px 0 10px;color:#c3ceca;font-size:11px;overflow-wrap:anywhere}
+        .dotDemianActionConfirm dl{display:grid;gap:6px;margin:0}
+        .dotDemianActionConfirm dl div{display:flex;justify-content:space-between;gap:12px;font-size:10px}
+        .dotDemianActionConfirm dt{color:#82918a}
+        .dotDemianActionConfirm dd{margin:0;text-align:right;color:#e4ece8}
+        .dotDemianActionButtons{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+        .dotDemianActionButtons button{border:1px solid #4b6559;border-radius:8px;padding:9px 12px;background:var(--green,#b7f35a);color:#0b0e0f;font-size:10px;font-weight:850;cursor:pointer}
+        .dotDemianActionButtons button+button{background:transparent;color:#aab5b1;border-color:#30383f}
+        .dotDemianActionButtons button:disabled{opacity:.55;cursor:not-allowed}
         .dotDemianChatTop{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 17px;border-bottom:1px solid #283138}
         .dotDemianChatTop b{display:block;font-size:11px;color:#e3e9ed}
         .dotDemianChatTop small{display:block;margin-top:4px;font-size:9px;color:#7c8991}
