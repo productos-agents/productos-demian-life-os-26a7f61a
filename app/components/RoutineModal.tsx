@@ -34,13 +34,13 @@ export default function RoutineModal(p:Props) {
         <p style={{fontSize:11,letterSpacing:2,color:"#b7f35a",fontWeight:700}}>PAUSA FINANCIERA</p>
         <h2 id="routine-title" style={{fontSize:27,lineHeight:1.15,margin:"8px 0 10px"}}>¿Tuviste algún ingreso o gasto que registrar?</h2>
         <p style={{color:"#b6c0c8",fontSize:14,lineHeight:1.55}}>Registrar un movimiento toma un momento. Si hoy no hubo ninguno, puedes cerrar esta pregunta.</p>
-        <button onClick={p.onMoney} style={baseButton}>Abrir finanzas</button>
+        <button onClick={()=>{p.onMoney();p.onClose();}} style={baseButton}>Abrir finanzas</button>
         <button onClick={p.onClose} style={quietButton}>Hoy no tengo movimientos</button>
       </>:p.kind==="reminder"?<>
         <p style={{fontSize:11,letterSpacing:2,color:"#82baff",fontWeight:700}}>ORGANIZA TU DÍA</p>
         <h2 id="routine-title" style={{fontSize:27,lineHeight:1.15,margin:"8px 0 10px"}}>¿Tienes algún recordatorio por añadir?</h2>
         <p style={{color:"#b6c0c8",fontSize:14,lineHeight:1.55}}>Deja una tarea o nota para no tener que recordarlo todo de memoria.</p>
-        <button onClick={p.onReminder} style={baseButton}>Añadir recordatorio</button>
+        <button onClick={()=>{p.onReminder();p.onClose();}} style={baseButton}>Añadir recordatorio</button>
         <button onClick={p.onClose} style={quietButton}>No tengo nada que añadir</button>
       </>:<>
         <p style={{fontSize:11,letterSpacing:2,color:"#b7f35a",fontWeight:700}}>TU PALABRA DEL DÍA</p>
