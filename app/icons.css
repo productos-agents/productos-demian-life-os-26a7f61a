@@ -41,8 +41,10 @@ button[aria-pressed="true"] .routineMoodIcon{color:var(--green)}
 .knowledgeSearch>.lineIcon{flex:0 0 auto;color:#909ba2}
 .knowledgeToolbar>.knowledgeBtn{display:inline-flex;align-items:center;gap:7px}
 .knowledgeToolbar .lineIcon{color:currentColor}
-.knowledgeEmpty>span{display:grid;place-items:center;font-size:initial;color:#bdc6cc}
+.knowledgeEmpty>span{display:grid;place-items:center;font-size:initial;color:#bdc6cc;background:#171c20!important;border:1px solid #303940;border-radius:9px}
 .knowledgeEmpty>span .lineIcon{width:22px;height:22px}
 .knowledgePin{display:grid;place-items:center}
 .knowledgePin .lineIcon{color:#b4bdc3}
 .knowledgePin.pinned .lineIcon{color:var(--green)}
+.wellnessEmpty>span{background:#171c20!important;color:#bdc6cc!important;border:1px solid #303940;border-radius:9px}
+.wellnessEmpty>span .lineIcon{width:21px;height:21px}
