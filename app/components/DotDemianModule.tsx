@@ -228,7 +228,7 @@ export default function DotDemianModule() {
             </div>
           </form>
           {error && <p className="dotDemianError" role="alert">{error}</p>}
-          <p className="dotDemianNotice">La IA gratuita usa un proveedor externo y su disponibilidad puede variar. No incluyas contraseñas, datos financieros ni información sensible. Verifica lo importante antes de actuar.</p>
+          <p className="dotDemianNotice">Modo gratuito sin clave vía BlockRun: las consultas pasan por un proveedor externo que puede usar prompts para mejorar su servicio. No incluyas contraseñas, datos financieros ni información sensible. La disponibilidad puede variar.</p>
         </div>
       </div>
 
