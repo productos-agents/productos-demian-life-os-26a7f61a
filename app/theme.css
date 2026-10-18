@@ -40,6 +40,15 @@
 .appearanceFooter small{font-size:8px;line-height:1.35;color:#829098;overflow-wrap:anywhere}
 .appearanceDone{border:1px solid var(--accent-border);border-radius:8px;background:var(--green);color:var(--accent-ink);padding:9px 13px;font-size:10px;font-weight:800}
 .appearanceDone:hover{filter:brightness(1.08)}
+.appearanceLogoutSection{margin-top:17px;padding-top:16px;border-top:1px solid #33292b;display:grid;gap:10px}
+.appearanceLogoutCopy{display:grid;gap:5px}
+.appearanceLogoutCopy b{font-size:11px;color:#e6e9eb;font-weight:700}
+.appearanceLogoutCopy small{font-size:9px;line-height:1.55;color:#879199}
+.appearanceLogout{width:100%;min-height:43px;display:flex;align-items:center;justify-content:center;gap:9px;padding:11px 13px;border:1px solid #63343a;border-radius:9px;background:linear-gradient(145deg,#291619,#1a1113);color:#ff9b9b;font-size:11px;font-weight:750;transition:border-color .15s,background .15s,box-shadow .15s}
+.appearanceLogout:hover:not(:disabled){border-color:#ff5267;background:linear-gradient(145deg,#35171d,#211114);box-shadow:0 0 16px #ff003c17}
+.appearanceLogout:disabled{opacity:.65;cursor:wait}
+.appearanceLogout .lineIcon{color:#ff6578}
+.appearanceLogoutError{margin:0;padding:9px 10px;border:1px solid #63343a;border-radius:8px;background:#241417;color:#ffaaaa;font-size:10px;line-height:1.45}
 .textBtn,.loginLinks button,.loginNotice{color:var(--green)}
 .navItem.active{background:var(--accent-soft);border-color:var(--accent-border-muted);color:var(--accent-text)}
 .navItem.active .navGlyph{color:var(--green)}
