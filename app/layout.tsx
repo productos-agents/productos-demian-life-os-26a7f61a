@@ -38,7 +38,6 @@ export const viewport: Viewport = {
 };
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return <html lang="es-MX"><body><AppUpdater />{children}
-        <Script src="/productos-badge.js" strategy="afterInteractive" />
         <Script src="/productos-canvas-height.js" strategy="afterInteractive" />
         <Script src="/productos-error-overlay.js" strategy="afterInteractive" />
         <Script src="/productos-screenshot.js" strategy="afterInteractive" />
