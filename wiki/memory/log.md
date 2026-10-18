@@ -1,0 +1,3 @@
+# Memory log (append-only)
+2026-10-18T03:29:24.304Z remember mcp: En DEMIAN CORE, la firma del desarrollador debe mostrar la versión vigente del lanzamiento de forma dinámica e idéntica tanto en la pantalla de inicio de sesión como en el pie de la plataforma principal; nunca dejar V1.0 ni otra versión escrita por separado en cada pantalla.
+2026-10-18T03:29:24.304Z remember mcp: Cada vez que se publique una nueva versión de DEMIAN CORE, la versión visible en las firmas de inicio de sesión y plataforma principal debe actualizarse automáticamente desde una única fuente de versión y permanecer sincronizada.
