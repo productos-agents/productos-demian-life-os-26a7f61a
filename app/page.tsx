@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import FinanceModule from "./components/FinanceModule";
 import WellnessModule from "./components/WellnessModule";
 import KnowledgeModule from "./components/KnowledgeModule";
+import Nudge from "./components/RoutineModal";
 
 type Kind = "task" | "transaction" | "habit" | "note";
 type Item = { id:string; kind:Kind; title:string; details:string; amount:number|null; category:string; dueDate:string; status:string; frequency:string; doneToday?:boolean; createdAt:string };
@@ -93,6 +94,14 @@ const getDailyQuote = (dateKey = getMexicoDateKey()) => {
   const dayNumber = Math.floor(Date.parse(dateKey+"T00:00:00Z")/86400000);
   return dailyQuotes[((dayNumber%dailyQuotes.length)+dailyQuotes.length)%dailyQuotes.length];
 };
+function decodeVapidKey(value:string) {
+  const normalized=value.replace(/-/g,"+").replace(/_/g,"/");
+  const padded=normalized+"=".repeat((4-normalized.length%4)%4);
+  const raw=window.atob(padded);
+  const output=new Uint8Array(raw.length);
+  for(let i=0;i<raw.length;i++)output[i]=raw.charCodeAt(i);
+  return output;
+}
 export default function Home() {
   const [items,setItems] = useState<Item[]>([]);
   const [userName,setUserName] = useState("Mi espacio");
@@ -109,6 +118,13 @@ export default function Home() {
   const [form,setForm] = useState({title:"",details:"",amount:"",category:"",dueDate:"",frequency:"Diario"});
   const [saving,setSaving] = useState(false);
   const [reminders,setReminders] = useState(false);
+  const [pushEnabled,setPushEnabled] = useState(false);
+  const [showDialog,setShowDialog] = useState(false);
+  const [routineDialog,setRoutineDialog] = useState<string|null>(null);
+  const [routineMood,setRoutineMood] = useState(3);
+  const [routineNote,setRoutineNote] = useState("");
+  const [routineSlot,setRoutineSlot] = useState("manual");
+  const [dailyWord,setDailyWord] = useState({word:"Constancia",message:"Los pasos pequeños que repites hoy construyen un mañana más sólido."});
   const refresh = useCallback(async () => {
     setFinanceConnection("checking");
     try {
@@ -133,6 +149,33 @@ export default function Home() {
   },[]);
   useEffect(()=>{ void refresh(); },[refresh]);
   useEffect(()=>{
+    let cancelled=false;
+    if(!("serviceWorker" in navigator)||!("PushManager" in window)||!("Notification" in window)) return;
+    void navigator.serviceWorker.ready.then(reg=>reg.pushManager.getSubscription()).then(subscription=>{
+      if(!cancelled){const enabled=!!subscription&&Notification.permission==="granted";setPushEnabled(enabled);setReminders(enabled);}
+    }).catch(()=>{});
+    return ()=>{cancelled=true;};
+  },[]);
+  useEffect(()=>{
+    const params=new URLSearchParams(window.location.search);
+    const routine=params.get("demianPrompt");
+    if(routine==="mood"){
+      setRoutineSlot(params.get("slot")||"manual");setRoutineDialog("mood");
+    } else if(routine==="money"){
+      setSection("transaction");setRoutineDialog("money");
+    } else if(routine==="reminder"){
+      setSection("task");setRoutineDialog("reminder");
+    } else if(routine==="motivation"){
+      setDailyWord({word:params.get("word")||"Constancia",message:params.get("message")||"Los pasos pequeños que repites hoy construyen un mañana más sólido."});
+      setRoutineDialog("motivation");
+    }
+    if(routine){
+      params.delete("demianPrompt");params.delete("slot");params.delete("word");params.delete("message");
+      const search=params.toString();
+      window.history.replaceState({}, "", window.location.pathname+(search?"?"+search:"")+window.location.hash);
+    }
+  },[]);
+  useEffect(()=>{
     const interval=window.setInterval(()=>{
       const next=getMexicoDateKey();
       setQuoteDay(current=>current===next?current:next);
@@ -147,7 +190,10 @@ export default function Home() {
     let seen:string[]=[]; try{seen=JSON.parse(localStorage.getItem(key)||"[]") as string[]}catch{}
     const fresh=due.filter(i=>!seen.includes(i.id));
     if(fresh.length){
-      new Notification("DEMian · Tareas por atender",{body:fresh.slice(0,3).map(i=>i.title).join(" · ")+(fresh.length>3?" y "+(fresh.length-3)+" más":"")});
+      const body=fresh.slice(0,3).map(i=>i.title).join(" · ")+(fresh.length>3?" y "+(fresh.length-3)+" más":"");
+      void navigator.serviceWorker.ready.then(reg=>reg.showNotification("DEMian · Tareas por atender",{body,icon:"/icon-512.png",data:{url:"/?demianPrompt=reminder"}})).catch(()=>{
+        try { new Notification("DEMian · Tareas por atender",{body}); } catch {}
+      });
       localStorage.setItem(key,JSON.stringify([...seen,...fresh.map(i=>i.id)]));
     }
   },[connection,items,reminders]);
@@ -206,20 +252,61 @@ export default function Home() {
   };
   const logout = async () => { try { await fetch("/api/auth", { method: "DELETE" }); window.location.assign("/login"); } catch { setNotice("No se pudo cerrar la sesión."); } };
   const enableReminders = async () => {
-    if (!("Notification" in window)) {setNotice("Este navegador no admite notificaciones.");return;}
-    const p=await Notification.requestPermission();setReminders(p==="granted");setNotice(p==="granted"?"Permiso de notificaciones activado en este dispositivo.":"No se concedió permiso para notificaciones.");
+    try {
+      if(pushEnabled){
+        const registration=await navigator.serviceWorker.ready;
+        const subscription=await registration.pushManager.getSubscription();
+        if(subscription){
+          const response=await fetch("/api/push/subscription",{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({endpoint:subscription.endpoint})});
+          if(!response.ok)throw new Error("No se pudo desactivar este dispositivo.");
+          await subscription.unsubscribe();
+        }
+        setPushEnabled(false);setReminders(false);setNotice("Notificaciones desactivadas en este dispositivo.");return;
+      }
+      if(!("Notification" in window)||!("serviceWorker" in navigator)||!("PushManager" in window)){
+        setNotice("Este navegador no admite push. En iPhone, abre DEMian desde el icono de la pantalla de inicio.");return;
+      }
+      let permission=Notification.permission;
+      if(permission!=="granted")permission=await Notification.requestPermission();
+      if(permission!=="granted"){setNotice("No se concedió permiso de notificaciones.");return;}
+      const keyResponse=await fetch("/api/push/public-key",{cache:"no-store"});
+      const keyData=await keyResponse.json();
+      if(!keyResponse.ok||!keyData.publicKey)throw new Error(keyData.error||"Falta configurar la clave del servidor.");
+      const registration=await navigator.serviceWorker.ready;
+      const existing=await registration.pushManager.getSubscription();
+      const subscription=existing||await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:decodeVapidKey(keyData.publicKey)});
+      const saved=await fetch("/api/push/subscription",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({subscription:subscription.toJSON()})});
+      const result=await saved.json();
+      if(!saved.ok||!result.ok)throw new Error(result.error||"No se pudo registrar el dispositivo.");
+      setPushEnabled(true);setReminders(true);setNotice("Notificaciones push activadas. Comprobando la entrega…");
+      const testResponse=await fetch("/api/push/test",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});
+      const testResult=await testResponse.json().catch(()=>({ok:false}));
+      if(testResponse.ok&&testResult.ok) setNotice("Notificaciones activadas y aviso de prueba enviado a este dispositivo.");
+      else setNotice("Notificaciones activadas. El aviso de prueba no pudo confirmarse; revisaremos la entrega al recibir el primer recordatorio.");
+    } catch(error) { setNotice(error instanceof Error?error.message:"No se pudieron activar las notificaciones."); }
+  };
+  const saveMoodCheckin=async()=>{
+    try{
+      const response=await fetch("/api/push/mood",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({mood:routineMood,note:routineNote,timeSlot:routineSlot})});
+      const result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||"No se pudo guardar el check-in.");
+      setRoutineDialog(null);setRoutineNote("");setNotice("Gracias por registrar cómo te sientes. Tu check-in quedó guardado en DEMian.");
+    }catch(error){setNotice(error instanceof Error?error.message:"No se pudo guardar el check-in.");}
   };
   const heading=sections.find(s=>s.id===section)?.label||"DEMian";
-  return <main className="shell">
+  return <main className="shell"><Nudge kind={routineDialog as any} onClose={()=>setRoutineDialog(null)} mood={routineMood} setMood={setRoutineMood} note={routineNote} setNote={setRoutineNote} onSaveMood={saveMoodCheckin} word={dailyWord.word} message={dailyWord.message} onMoney={()=>setSection("transaction")} onReminder={()=>{setSection("task");setFormOpen(true);}} />
     <aside className="sidebar">
       <div className="brand"><div className="brandMark">D<span>·</span></div><div><b>DEMian</b><small>LIFE OS <i>V0.1</i></small></div></div>
       <div className="workspace"><span className="avatar">{userInitial}</span><div><b>{userName}</b><small>Espacio personal</small></div><span className="dots">•••</span></div>
       <p className="navLabel">TU SISTEMA</p>
       <nav>{sections.map(s=><button key={s.id} onClick={()=>setSection(s.id)} className={section===s.id?"navItem active":"navItem"}><span className="navGlyph">{s.glyph}</span><span>{s.label}</span>{s.id==="task"&&openTasks.length>0&&<em>{openTasks.length}</em>}</button>)}</nav>
-      <div className="sidebarBottom"><div className="connection"><span className={"statusDot "+connection}></span><div><b>{connection==="connected"?"Base de datos conectada":connection==="checking"?"Verificando conexión":"Sin conexión"}</b><small>{connection==="connected"?"PostgreSQL · Neon":connection==="checking"?"Comprobando persistencia":"Revisa configuración del servidor"}</small></div></div><button className="quietBtn" onClick={enableReminders}>♧ Permitir notificaciones</button><button className="quietBtn logoutBtn" onClick={logout}>↪ Cerrar sesión</button><small className="privacy">Tus registros se guardan en la base de datos de DEMian.</small></div>
+      <div className="sidebarBottom"><div className="connection"><span className={"statusDot "+connection}></span><div><b>{connection==="connected"?"Base de datos conectada":connection==="checking"?"Verificando conexión":"Sin conexión"}</b><small>{connection==="connected"?"PostgreSQL · Neon":connection==="checking"?"Comprobando persistencia":"Revisa configuración del servidor"}</small></div></div><button className="quietBtn" onClick={()=>void enableReminders()}>{pushEnabled?"✓ Notificaciones activas · Desactivar":"♧ Activar notificaciones push"}</button><button className="quietBtn logoutBtn" onClick={logout}>↪ Cerrar sesión</button><small className="privacy">Tus registros se guardan en la base de datos de DEMian.</small></div>
     </aside>
     <section className="main">
       <header className="topbar"><div className="breadcrumb">DEMian <span>/</span> {heading}</div><div className="topActions"><div className="searchBox"><span>⌕</span><input aria-label="Buscar" placeholder="Buscar en tu sistema..." value={query} onChange={e=>setQuery(e.target.value)}/><kbd>⌘ K</kbd></div><button className="roundBtn" title="Actualizar" onClick={()=>void refresh()}>↻</button><span className="avatar">{userInitial}</span></div></header>
+      <section className="pushSetup" aria-label="Configuración de notificaciones">
+        <div className="pushSetupCopy"><b>{pushEnabled?"Notificaciones push activas":"Activa las notificaciones de DEMian"}</b><small>{pushEnabled?"Recibirás tus pausas de bienestar, finanzas, recordatorios y la palabra del día.":"3 pausas de bienestar, 5 pausas financieras, revisión de recordatorios y palabra motivacional cada mañana."}</small></div>
+        <button className="pushSetupButton" onClick={()=>void enableReminders()}>{pushEnabled?"Desactivar":"Activar notificaciones"}</button>
+      </section>
       <div className="content">
         {section==="overview"?<>
           <div className="welcome"><div><p className="eyebrow">{new Intl.DateTimeFormat("es-MX",{weekday:"long"}).format(new Date()).toUpperCase()} · TU CENTRO DE CONTROL</p><h1>Vamos a poner tu vida<br/><span>en orden.</span></h1><p className="subhead">Todo lo importante, en un solo lugar. Un paso a la vez.</p></div><div className="dateCard"><span>HOY</span><b>{new Intl.DateTimeFormat("es-MX",{day:"2-digit",month:"short"}).format(new Date())}</b><small>{new Intl.DateTimeFormat("es-MX",{weekday:"long"}).format(new Date())}</small></div></div>
