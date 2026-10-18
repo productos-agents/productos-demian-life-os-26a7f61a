@@ -304,10 +304,11 @@ export default function Home() {
       if(document.fonts?.ready)await document.fonts.ready;
       const quote=getDailyQuote(quoteDay);
       const canvas=document.createElement("canvas");
-      canvas.width=1080;canvas.height=1080;
+      canvas.width=3840;canvas.height=3840;
       const ctx=canvas.getContext("2d");
       if(!ctx)throw new Error("No se pudo preparar la imagen.");
-      const width=canvas.width,height=canvas.height;
+      const width=1080,height=1080;
+      ctx.scale(canvas.width/width,canvas.height/height);
       const accent=getComputedStyle(document.documentElement).getPropertyValue("--green").trim()||"#BD00FF";
       const rgb=accent.match(/^#([0-9a-f]{6})$/i)?.[1];
       const accentRgb=rgb?{r:parseInt(rgb.slice(0,2),16),g:parseInt(rgb.slice(2,4),16),b:parseInt(rgb.slice(4,6),16)}:{r:189,g:0,b:255};
@@ -352,7 +353,6 @@ export default function Home() {
       ctx.fillStyle="#89949c";ctx.font="500 14px 'DM Sans',Arial,sans-serif";ctx.fillText("UN PASO A LA VEZ",108,taglineY+30);
       ctx.globalAlpha=.2;ctx.fillStyle=accent;ctx.beginPath();ctx.arc(890,820,260,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
       ctx.globalAlpha=.35;ctx.strokeStyle=accent;ctx.lineWidth=2;ctx.beginPath();ctx.arc(944,855,120,0,Math.PI*2);ctx.stroke();ctx.beginPath();ctx.arc(944,855,150,0,Math.PI*2);ctx.stroke();ctx.globalAlpha=1;
-      ctx.fillStyle=accent;ctx.font="800 12px 'DM Sans',Arial,sans-serif";ctx.textAlign="center";ctx.fillText("GUÁRDALA · COMPÁRTELA · VUELVE A ELLA",540,930);
       const blob=await new Promise<Blob>((resolve,reject)=>canvas.toBlob(file=>file?resolve(file):reject(new Error("No se pudo exportar la imagen.")),"image/png"));
       const file=new File([blob],`demian-core-frase-${quoteDay}.png`,{type:"image/png"});
       if(typeof navigator.share==="function"){
