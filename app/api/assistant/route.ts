@@ -191,6 +191,26 @@ const assistantTools = [
         additionalProperties: false
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "propose_financial_edit",
+      description: "Prepara cambios a un ingreso o gasto existente de FLUX cuando el usuario pida corregirlo. No modifica nada aún: siempre genera una tarjeta para confirmación explícita. Usa únicamente el id del movimiento y los datos que aparezcan en el contexto financiero; no inventes ids ni datos.",
+      parameters: {
+        type: "object",
+        properties: {
+          transaction_id: { type: "string", description: "Id interno del movimiento tal como aparece en el contexto." },
+          amount: { type: "number", exclusiveMinimum: 0 },
+          category: { type: "string" },
+          description: { type: "string" },
+          account_name: { type: "string" },
+          date: { type: "string", description: "Fecha YYYY-MM-DD." }
+        },
+        required: ["transaction_id"],
+        additionalProperties: false
+      }
+    }
   }
 ] as const;
 
