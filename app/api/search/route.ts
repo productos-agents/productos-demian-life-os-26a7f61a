@@ -35,6 +35,12 @@ export async function GET(req: NextRequest) {
       "ORDER BY created_at DESC,id DESC LIMIT 8",
       [uid, pattern]
     );
+    const filesQuery = personalDb().query(
+      "SELECT f.id,f.file_name,f.summary,f.category,f.status,f.created_at,n.title AS note_title FROM public.demian_brain_files f LEFT JOIN public.demian_items n ON n.id=f.note_id AND n.user_id=f.user_id " +
+      "WHERE f.user_id=$1 AND (f.file_name ILIKE $2 OR f.extracted_text ILIKE $2 OR f.summary ILIKE $2 OR f.category ILIKE $2) " +
+      "ORDER BY f.created_at DESC LIMIT 8",
+      [uid, pattern]
+    );
     const fid = uuid(req, "x-demian-flux-user-id");
     const financeQuery = fid ? financeDb().query(
       "SELECT t.id,t.type,t.category,t.description,t.amount::float8 AS amount,t.transaction_date::text AS transaction_date,t.created_at,a.name AS account_name " +
@@ -43,9 +49,11 @@ export async function GET(req: NextRequest) {
       "ORDER BY t.transaction_date DESC,t.created_at DESC,t.id DESC LIMIT 8",
       [fid, pattern]
     ) : Promise.resolve({ rows: [] as Record<string, unknown>[] });
-    const [itemsResult, financeResult] = await Promise.allSettled([itemsQuery, financeQuery]);
+    const [itemsResult, financeResult, filesResult] = await Promise.allSettled([itemsQuery, financeQuery, filesQuery]);
     if (itemsResult.status === "rejected") throw itemsResult.reason;
     const items = itemsResult.value;
+    if (filesResult.status === "rejected") throw filesResult.reason;
+    const files = filesResult.value;
     const finance = financeResult.status === "fulfilled" ? financeResult.value : { rows: [] as Record<string, unknown>[] };
     if (financeResult.status === "rejected") console.error("DEMian search: financial history unavailable; returning personal matches only.", financeResult.reason);
     const itemResults = items.rows.map((item: Record<string, unknown>) => ({
@@ -64,7 +72,15 @@ export async function GET(req: NextRequest) {
       icon: "wallet",
       createdAt: item.created_at
     }));
-    const results = [...itemResults, ...financeResults]
+    const fileResults = files.rows.map((item: Record<string, unknown>) => ({
+      id: "file-" + String(item.id),
+      title: String(item.note_title || item.file_name || "Archivo guardado"),
+      subtitle: "Segundo cerebro · Archivo · " + String(item.category || "Pendiente de organizar") + (item.summary ? " · " + String(item.summary).slice(0, 90) : ""),
+      target: "note",
+      icon: "book-open",
+      createdAt: item.created_at
+    }));
+    const results = [...itemResults, ...fileResults, ...financeResults]
       .sort((a, b) => new Date(String(b.createdAt || 0)).getTime() - new Date(String(a.createdAt || 0)).getTime())
       .slice(0, 8)
       .map(({ createdAt: _createdAt, ...result }) => result);
