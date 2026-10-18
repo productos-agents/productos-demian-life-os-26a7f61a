@@ -11,7 +11,7 @@ import LineIcon from "./components/LineIcon";
 import type { LineIconName } from "./components/LineIcon";
 
 type Kind = "task" | "transaction" | "habit" | "note";
-type Item = { id:string; kind:Kind; title:string; details:string; amount:number|null; category:string; dueDate:string; status:string; frequency:string; doneToday?:boolean; createdAt:string };
+type Item = { id:string; kind:Kind; title:string; details:string; amount:number|null; category:string; dueDate:string; status:string; frequency:string; doneToday?:boolean; doneThisWeek?:boolean; doneThisMonth?:boolean; doneForPeriod?:boolean; isDueToday?:boolean; createdAt:string };
 type FinanceSnapshot = {accounts:Array<{account_type:string;balance:number;is_active:boolean}>;transactions:Array<{id:string;type:string;amount:number;transaction_date:string;transfer_group:string|null;description:string;category:string;account_name?:string|null}>};
 type GlobalSearchResult = {id:string;title:string;subtitle:string;target:Kind;icon:LineIconName};
 type Section = "overview" | Kind;
