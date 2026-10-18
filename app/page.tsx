@@ -118,6 +118,7 @@ export default function Home() {
   const [saving,setSaving] = useState(false);
   const [reminders,setReminders] = useState(false);
   const [pushEnabled,setPushEnabled] = useState(false);
+  const [showDialog,setShowDialog] = useState(false);
   const refresh = useCallback(async () => {
     setFinanceConnection("checking");
     try {
