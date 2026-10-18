@@ -150,8 +150,9 @@ export default function Home() {
   useEffect(()=>{ void refresh(); },[refresh]);
   useEffect(()=>{
     let cancelled=false;
-    void fetch("/api/push/subscription",{cache:"no-store"}).then(r=>r.json()).then(d=>{
-      if(!cancelled){setPushEnabled(d?.ok===true&&d.subscribed===true);setReminders(d?.ok===true&&d.subscribed===true);}
+    if(!("serviceWorker" in navigator)||!("PushManager" in window)||!("Notification" in window)) return;
+    void navigator.serviceWorker.ready.then(reg=>reg.pushManager.getSubscription()).then(subscription=>{
+      if(!cancelled){const enabled=!!subscription&&Notification.permission==="granted";setPushEnabled(enabled);setReminders(enabled);}
     }).catch(()=>{});
     return ()=>{cancelled=true;};
   },[]);
