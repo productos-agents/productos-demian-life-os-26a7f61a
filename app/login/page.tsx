@@ -44,7 +44,7 @@ export default function LoginPage() {
   return <main className="loginShell">
     <div className="loginGlow" />
     <section className="loginCard">
-      <div className="brand loginBrand"><div className="brandMark">D<span>·</span></div><div><b>DEMian</b><small>LIFE OS <i>PERSONAL</i></small></div></div>
+      <div className="brand loginBrand"><img className="loginAppLogo" src="/icon.svg" alt="DEMIAN CORE" /><div><b>DEMIAN CORE</b><small>SISTEMA <i>PERSONAL</i></small></div></div>
       <p className="eyebrow">{mode === "register" ? "TU ESPACIO EMPIEZA AQUÍ" : mode === "legacy" ? "RECUPERA TU ESPACIO ANTERIOR" : "TU ESPACIO PERSONAL"}</p>
       <h1>{mode === "register" ? <>Crea tu cuenta,<br /><span>a tu manera.</span></> : mode === "legacy" ? <>Volvamos a<br /><span>tu espacio.</span></> : <>Tu vida,<br /><span>en orden.</span></>}</h1>
       <p className="subhead">{mode === "register" ? "Tu cuenta, tus datos, tus decisiones. Un espacio privado para organizar tu vida." : mode === "legacy" ? "Entra con la clave anterior para recuperar tus registros guardados." : "Un espacio privado para tus tareas, finanzas, hábitos e ideas."}</p>
@@ -63,7 +63,8 @@ export default function LoginPage() {
         {mode === "legacy" && <button type="button" onClick={() => switchMode("login")}>Volver a iniciar sesión</button>}
       </div>
       <div className="loginFoot"><span className="statusDot connected" /> ACCESO PROTEGIDO · DATOS POR CUENTA</div>
+      <footer className="footer developerSignature loginDeveloperSignature"><span className="signatureCaption">DEMian V1.0 · desarrollado por J D O SERVICES</span><div className="signatureLogo"><img src="/jdo-services-logo.webp" alt="Logotipo oficial JDO Services" className="signatureLogoImage" /></div></footer>
     </section>
-    <small className="loginVersion">DEMian LIFE OS · V0.2</small>
+    <small className="loginVersion">DEMIAN CORE · V1.0</small>
   </main>;
 }
