@@ -31,3 +31,4 @@
 .createForm select{width:100%;border:1px solid #333b42;background:#0d1114;color:#e9edf0;border-radius:8px;padding:10px;margin-top:7px}
 .taskEditButton{font-size:15px!important;padding:4px!important}
 @media(max-width:620px){.globalSearchResults{position:fixed;top:120px;left:14px;right:14px;width:auto;max-height:60vh}.searchBox{min-width:0}.searchBox input{min-width:0}}
+.loadMoreWrap{display:flex;justify-content:center;margin-top:16px}

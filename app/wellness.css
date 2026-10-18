@@ -16,3 +16,4 @@
 .wellnessHabitSearch{display:flex;align-items:center;gap:9px;margin:12px 0;padding:0 11px;height:38px;border:1px solid #303a40;border-radius:8px;background:#0e1215;color:#89949d}
 .wellnessHabitSearch input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:#eef0f2;font-size:11px}
 .wellnessHabitSearch button{border:0;background:transparent;color:#98a1a9;font-size:18px;padding:0 2px}
+.wellnessLoadMore{display:flex;justify-content:center;margin-top:12px;padding-top:12px;border-top:1px solid #273037}
