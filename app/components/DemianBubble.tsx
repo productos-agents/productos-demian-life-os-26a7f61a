@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import LineIcon from "./LineIcon";
 import DotDemianModule from "./DotDemianModule";
 
-type PendingAttachment = { id: string; name: string };
+type PendingAttachment = { id: string; name: string; attempt: number };
 type DemianOpenDetail = { attachmentId?: string; filename?: string };
 
 export default function DemianBubble() {
@@ -14,7 +14,7 @@ export default function DemianBubble() {
   useEffect(() => {
     const handleOpen = (event: Event) => {
       const detail = (event as CustomEvent<DemianOpenDetail>).detail || {};
-      setPendingAttachment(detail.attachmentId ? { id: detail.attachmentId, name: detail.filename || "archivo" } : null);
+      setPendingAttachment(detail.attachmentId ? { id: detail.attachmentId, name: detail.filename || "archivo", attempt: Date.now() } : null);
       setOpen(true);
     };
     window.addEventListener("demian:open", handleOpen);
