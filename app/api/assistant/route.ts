@@ -13,7 +13,7 @@ const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || "openrouter/free";
 const isConfigured = Boolean(OPENROUTER_API_KEY);
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
-type ProviderAnswer = { reply: string; provider: string; model: string };
+
 type AssistantToolCall = { id: string; type?: string; function: { name: string; arguments: string } };
 type FinancePendingAction = {
   type: "finance.transaction.create";
@@ -113,33 +113,6 @@ function providerErrorMessage(error: unknown) {
     return "OpenRouter Free no pudo responder en este momento. Inténtalo de nuevo.";
   }
   return "No se pudo conectar con OpenRouter Free. Inténtalo de nuevo.";
-}
-async function askOpenRouter(instructions: string, history: ChatMessage[]): Promise<ProviderAnswer> {
-  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": "Bearer " + OPENROUTER_API_KEY,
-      "HTTP-Referer": "https://demian-life-os-web-production.up.railway.app",
-      "X-Title": "DEMIAN CORE"
-    },
-    body: JSON.stringify({
-      model: OPENROUTER_MODEL,
-      messages: [{ role: "system", content: instructions }, ...history],
-      max_tokens: 1400,
-      temperature: 0.7,
-      stream: false
-    }),
-    signal: AbortSignal.timeout(60_000)
-  });
-  const result = await response.json().catch(() => ({})) as Record<string, unknown>;
-  if (!response.ok) throw new ProviderFailure(response.status, "OpenRouter");
-  const choices = Array.isArray(result.choices) ? result.choices as Array<Record<string, unknown>> : [];
-  const first = choices[0] || {};
-  const message = first.message && typeof first.message === "object" ? first.message as Record<string, unknown> : {};
-  const reply = typeof message.content === "string" ? message.content.trim() : "";
-  if (!reply) throw new ProviderFailure(502, "OpenRouter");
-  return { reply, provider: "OpenRouter Free", model: typeof result.model === "string" ? result.model : OPENROUTER_MODEL };
 }
 const assistantTools = [
   {
