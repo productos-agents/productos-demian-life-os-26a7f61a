@@ -9,7 +9,7 @@ const noCache = { "Cache-Control": "private, no-store, max-age=0" };
 const globals = globalThis as unknown as { demianAssistantPool?: Pool; demianAssistantReady?: Promise<void>; demianAssistantFluxPool?: Pool };
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
 const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || "openrouter/free";
-// DOT DEMIAN works with OpenRouter when a valid key is configured; otherwise it uses a keyless free gateway.
+// DEMIAN uses OpenRouter Free for responses.
 const isConfigured = Boolean(OPENROUTER_API_KEY);
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
@@ -271,8 +271,8 @@ export async function GET(req: NextRequest) {
     );
     return json({ ok: true, conversations: result.rows, configured: isConfigured, provider: configuredProvider() });
   } catch (error) {
-    console.error("DOT DEMIAN GET:", error);
-    return json({ ok: false, error: "No se pudo cargar DOT DEMIAN. Inténtalo de nuevo." }, 503);
+    console.error("DEMIAN GET:", error);
+    return json({ ok: false, error: "No se pudo cargar DEMIAN. Inténtalo de nuevo." }, 503);
   }
 }
 export async function POST(req: NextRequest) {
@@ -320,8 +320,8 @@ export async function POST(req: NextRequest) {
     const history = (previous.rows as ChatMessage[]).reverse();
     const workspaceContext = await loadWorkspaceContext(session, message);
     const instructions = [
-      "Te llamas DEMIAN. Eres el asistente personal integrado en DEMIAN CORE. Nunca te presentes como DOT DEMIAN ni como otro producto.",
-      "DEMlAN CORE es el espacio personal del usuario: Vista general, Vida en orden para tareas y pendientes, Finanzas para saldos y movimientos, Salud y hábitos para rutinas y bienestar, y Segundo cerebro para notas e ideas. Los recordatorios pueden ayudar a mantener el rumbo.",
+      "Te llamas DEMIAN. Eres el asistente personal integrado en DEMIAN CORE. Preséntate sencillamente como DEMIAN si hace falta y no como una marca de producto.",
+      "DEMIAN CORE es el espacio personal del usuario: Vista general, Vida en orden para tareas y pendientes, Finanzas para saldos y movimientos, Salud y hábitos para rutinas y bienestar, y Segundo cerebro para notas e ideas. Los recordatorios pueden ayudar a mantener el rumbo.",
       "Habla como un asistente natural, atento, cálido y práctico; no repitas presentaciones ni des rodeos. Responde en español salvo que te hablen en otro idioma. Recuerda el contexto de la conversación y no vuelvas a pedir datos que ya estén en ella o en la información de la app.",
       "Cuando el usuario pregunte por sus pendientes, hábitos, notas o finanzas, usa primero los datos reales de la sección CONTEXTO DE DEMIAN CORE de este mensaje. Resume y prioriza con precisión. Si hay cero registros, dilo con naturalidad; si la consulta falló, admite que no pudiste comprobarlo. No inventes registros ni afirmes que no tienes acceso a datos que sí aparecen allí.",
       "Puedes consultar información proporcionada por el sistema en modo solo lectura. No digas que creaste, editaste, completaste ni eliminaste registros: no tienes herramientas de escritura conectadas.",
@@ -340,7 +340,7 @@ export async function POST(req: NextRequest) {
     );
     return json({ ok: true, conversationId, reply: answer.reply, provider: answer.provider, model: answer.model });
   } catch (error) {
-    console.error("DOT DEMIAN POST:", error instanceof ProviderFailure ? { provider: error.provider, status: error.status } : error);
+    console.error("DEMIAN POST:", error instanceof ProviderFailure ? { provider: error.provider, status: error.status } : error);
     return json({ ok: false, error: providerErrorMessage(error) }, error instanceof ProviderFailure && error.status === 429 ? 429 : 502);
   }
 }
