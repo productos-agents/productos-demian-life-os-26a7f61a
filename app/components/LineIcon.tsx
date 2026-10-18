@@ -11,7 +11,7 @@ export type LineIconName =
   | "circle" | "mood-sad" | "mood-low" | "mood-neutral" | "mood-good"
   | "mood-happy" | "smile" | "brain" | "layout-grid" | "list-check"
   | "arrow-left-right" | "ellipsis" | "check-square" | "wallet-cards"
-  | "receipt" | "calendar-days" | "chart-pie" | "hand-coins" | "coins"
+  | "receipt" | "calendar-days" | "chart-pie" | "hand-coins" | "coins" | "share-2"
   | "book-mark" | "cloud-upload" | "download" | "bell";
 
 type Props = {
@@ -79,6 +79,7 @@ const art: Record<LineIconName, ReactNode> = {
   "chart-pie": <><path d="M11 3a9 9 0 1 0 10 10H11Z"/><path d="M14 3.5A8.5 8.5 0 0 1 20.5 10H14Z"/></>,
   "hand-coins": <><path d="M11 4h7M14.5 4v6"/><path d="M3 14h5l3 2h4a2 2 0 0 0 2-2v-1h-5"/><path d="m3 12 5-4 4 1 3-2a2 2 0 0 1 2 3l-3 3M3 18h13l5-4"/></>,
   "coins": <><ellipse cx="9" cy="6" rx="6" ry="3"/><path d="M3 6v5c0 1.7 2.7 3 6 3s6-1.3 6-3V6M3 11v5c0 1.7 2.7 3 6 3 1 0 2-.1 2.8-.4"/><ellipse cx="17" cy="16" rx="4" ry="2"/><path d="M13 16v3c0 1.1 1.8 2 4 2s4-.9 4-2v-3"/></>,
+  "share-2": <><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.7 10.7 6.6-4.4M8.7 13.3l6.6 4.4"/></>,
   "book-mark": <><path d="M6 3h12v18l-6-4-6 4Z"/><path d="M9 7h6"/></>,
   "cloud-upload": <><path d="M7 18a5 5 0 0 1-.5-10A6.5 6.5 0 0 1 19 10a4 4 0 0 1 0 8Z"/><path d="M12 16V9m-3 3 3-3 3 3"/></>,
   "download": <><path d="M12 3v12m-4-4 4 4 4-4"/><path d="M4 17v4h16v-4"/></>,
