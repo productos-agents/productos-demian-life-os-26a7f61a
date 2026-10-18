@@ -211,10 +211,27 @@ const assistantTools = [
         additionalProperties: false
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "organize_uploaded_file",
+      description: "Clasifica el archivo que el usuario adjuntó y propone un título, una categoría y un resumen breve. Úsala únicamente cuando el sistema te indique que hay un archivo adjunto que debe guardarse en Segundo cerebro. No inventes el contenido; si no hay texto extraído, indícalo en el resumen.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Nombre descriptivo para encontrar el archivo después." },
+          category: { type: "string", description: "Carpeta o etiqueta breve como Trabajo, Finanzas, Referencias, Estudios, Personal, Ideas o Proyectos." },
+          summary: { type: "string", description: "Resumen basado solo en el texto disponible, máximo 450 caracteres." }
+        },
+        required: ["title", "category", "summary"],
+        additionalProperties: false
+      }
+    }
   }
 ] as const;
 
-async function askOpenRouterWithTools(instructions: string, history: ChatMessage[]): Promise<AssistantToolTurn> {
+async function askOpenRouterWithTools(instructions: string, history: ChatMessage[], organizeFile = false): Promise<AssistantToolTurn> {
   if (!OPENROUTER_API_KEY) throw new Error("OpenRouter Free no está configurado en el servidor.");
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
@@ -228,7 +245,7 @@ async function askOpenRouterWithTools(instructions: string, history: ChatMessage
       model: OPENROUTER_MODEL,
       messages: [{ role: "system", content: instructions }, ...history],
       tools: assistantTools,
-      tool_choice: "auto",
+      tool_choice: organizeFile ? { type: "function", function: { name: "organize_uploaded_file" } } : "auto",
       max_tokens: 1600,
       temperature: 0.2,
       stream: false
