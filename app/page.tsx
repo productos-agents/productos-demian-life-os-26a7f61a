@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import FinanceModule from "./components/FinanceModule";
 import WellnessModule from "./components/WellnessModule";
 import KnowledgeModule from "./components/KnowledgeModule";
+import Nudge from "./components/RoutineModal";
 
 type Kind = "task" | "transaction" | "habit" | "note";
 type Item = { id:string; kind:Kind; title:string; details:string; amount:number|null; category:string; dueDate:string; status:string; frequency:string; doneToday?:boolean; createdAt:string };
