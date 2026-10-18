@@ -104,6 +104,33 @@ export default function FinanceModule({initialSearch=""}:{initialSearch?:string}
   },[periodFilter]);
   useEffect(()=>{void refresh();},[refresh]);
   useEffect(()=>{setSearch(initialSearch);if(initialSearch.trim())setTab("transactions");},[initialSearch]);
+  useEffect(()=>{
+    if(tab!=="reports")return;
+    let cancelled=false;
+    setLoadingReportTransactions(true);
+    void fetch("/api/finance?limit=100&offset=0&month="+encodeURIComponent(periodFilter)+"&transactionMonth="+encodeURIComponent(periodFilter),{cache:"no-store"}).then(async response=>{
+      const result=await response.json();
+      if(!response.ok||!result.ok)throw new Error(result.error||"No se pudo cargar el desglose del periodo.");
+      if(cancelled)return;
+      setReportTransactions(result.finance.transactions as Tx[]);
+      setReportTransactionsHasMore(result.finance.transactionsHasMore===true);
+      setReportTransactionsNextOffset(Number(result.finance.transactionsNextOffset??0));
+    }).catch(error=>{if(!cancelled)setMessage(error instanceof Error?error.message:"No se pudo cargar el desglose del periodo.");}).finally(()=>{if(!cancelled)setLoadingReportTransactions(false);});
+    return ()=>{cancelled=true;};
+  },[tab,periodFilter]);
+  async function loadMoreReportTransactions(){
+    if(loadingMoreReportTransactions||!reportTransactionsHasMore)return;
+    setLoadingMoreReportTransactions(true);
+    try{
+      const r=await fetch("/api/finance?limit=100&offset="+reportTransactionsNextOffset+"&month="+encodeURIComponent(periodFilter)+"&transactionMonth="+encodeURIComponent(periodFilter),{cache:"no-store"});
+      const result=await r.json();
+      if(!r.ok||!result.ok)throw new Error(result.error||"No se pudieron cargar más filas del informe.");
+      setReportTransactions(previous=>{const ids=new Set(previous.map(t=>t.id));return [...previous,...(result.finance.transactions as Tx[]).filter((t:Tx)=>!ids.has(t.id))];});
+      setReportTransactionsHasMore(result.finance.transactionsHasMore===true);
+      setReportTransactionsNextOffset(Number(result.finance.transactionsNextOffset??reportTransactionsNextOffset));
+    }catch(error){setMessage(error instanceof Error?error.message:"No se pudieron cargar más filas.");}
+    finally{setLoadingMoreReportTransactions(false);}
+  }
   async function loadMoreTransactions(){
     if(!data?.transactionsHasMore||loadingMoreTransactions)return;
     setLoadingMoreTransactions(true);
