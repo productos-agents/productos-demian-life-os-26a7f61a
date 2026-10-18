@@ -350,18 +350,19 @@ export default function Home() {
       const taglineY=Math.min(785,quoteStartY+lines.length*lineHeight+42);
       ctx.fillStyle=accent;ctx.font="800 17px 'DM Sans',Arial,sans-serif";ctx.fillText(quote.tagline,108,taglineY);
       ctx.fillStyle="#89949c";ctx.font="500 14px 'DM Sans',Arial,sans-serif";ctx.fillText("UN PASO A LA VEZ",108,taglineY+30);
-      ctx.globalAlpha=.35;ctx.strokeStyle=accent;ctx.lineWidth=2;ctx.beginPath();ctx.arc(944,1450,178,0,Math.PI*2);ctx.stroke();ctx.beginPath();ctx.arc(944,1450,218,0,Math.PI*2);ctx.stroke();ctx.globalAlpha=1;
-      ctx.fillStyle=accent;ctx.font="800 16px 'DM Sans',Arial,sans-serif";ctx.textAlign="center";ctx.fillText("GUÁRDALA · COMPÁRTELA · VUELVE A ELLA",540,1518);
-      ctx.strokeStyle="#30373d";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(96,1580);ctx.lineTo(984,1580);ctx.stroke();
+      ctx.globalAlpha=.2;ctx.fillStyle=accent;ctx.beginPath();ctx.arc(890,820,260,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
+      ctx.globalAlpha=.35;ctx.strokeStyle=accent;ctx.lineWidth=2;ctx.beginPath();ctx.arc(944,855,120,0,Math.PI*2);ctx.stroke();ctx.beginPath();ctx.arc(944,855,150,0,Math.PI*2);ctx.stroke();ctx.globalAlpha=1;
+      ctx.fillStyle=accent;ctx.font="800 12px 'DM Sans',Arial,sans-serif";ctx.textAlign="center";ctx.fillText("GUÁRDALA · COMPÁRTELA · VUELVE A ELLA",540,855);
+      ctx.strokeStyle="#30373d";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(96,890);ctx.lineTo(984,890);ctx.stroke();
       const logo=await loadImage("/jdo-services-logo.webp");
       if(logo){
-        const maxW=260,maxH=84,scale=Math.min(maxW/logo.naturalWidth,maxH/logo.naturalHeight);
-        ctx.drawImage(logo,(width-logo.naturalWidth*scale)/2,1633,logo.naturalWidth*scale,logo.naturalHeight*scale);
+        const maxW=210,maxH=58,scale=Math.min(maxW/logo.naturalWidth,maxH/logo.naturalHeight);
+        ctx.drawImage(logo,(width-logo.naturalWidth*scale)/2,904,logo.naturalWidth*scale,logo.naturalHeight*scale);
       }else{
-        ctx.fillStyle="#f1f4f6";ctx.font="700 32px Manrope,Arial,sans-serif";ctx.textAlign="center";ctx.fillText("J D O SERVICES",540,1685);
+        ctx.fillStyle="#f1f4f6";ctx.font="700 27px Manrope,Arial,sans-serif";ctx.textAlign="center";ctx.fillText("J D O SERVICES",540,940);
       }
       ctx.fillStyle="#9aa2aa";ctx.font="500 17px 'DM Sans',Arial,sans-serif";ctx.textAlign="center";
-      ctx.fillText(`DEMIAN CORE ${APP_VERSION} · DESARROLLADO POR J D O SERVICES`,540,1795);
+      ctx.fillText(`DEMIAN CORE ${APP_VERSION} · DESARROLLADO POR J D O SERVICES`,540,1000);
       const blob=await new Promise<Blob>((resolve,reject)=>canvas.toBlob(file=>file?resolve(file):reject(new Error("No se pudo exportar la imagen.")),"image/png"));
       const file=new File([blob],`demian-core-frase-${quoteDay}.png`,{type:"image/png"});
       if(typeof navigator.share==="function"){
