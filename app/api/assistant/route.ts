@@ -14,6 +14,18 @@ const isConfigured = Boolean(OPENROUTER_API_KEY);
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 type ProviderAnswer = { reply: string; provider: string; model: string };
+type AssistantToolCall = { id: string; type?: string; function: { name: string; arguments: string } };
+type FinancePendingAction = {
+  type: "finance.transaction.create";
+  transactionType: "income" | "expense";
+  amount: number;
+  category: string;
+  description: string;
+  accountName: string;
+  date: string;
+};
+type AssistantToolTurn = { reply: string; provider: string; model: string; toolCalls: AssistantToolCall[] };
+type ToolExecution = { reply: string; pendingAction?: FinancePendingAction };
 class ProviderFailure extends Error {
   constructor(public status: number, public provider: string) {
     super(provider + " request failed with status " + status);
@@ -129,9 +141,125 @@ async function askOpenRouter(instructions: string, history: ChatMessage[]): Prom
   if (!reply) throw new ProviderFailure(502, "OpenRouter");
   return { reply, provider: "OpenRouter Free", model: typeof result.model === "string" ? result.model : OPENROUTER_MODEL };
 }
-async function askFreeAI(instructions: string, history: ChatMessage[]): Promise<ProviderAnswer> {
+const assistantTools = [
+  {
+    type: "function",
+    function: {
+      name: "create_record",
+      description: "Crea una tarea, un hábito o una nota en la cuenta autenticada del usuario. Úsala cuando el usuario pida explícitamente guardar, anotar, apuntar, añadir o crear algo. No la uses para movimientos financieros.",
+      parameters: {
+        type: "object",
+        properties: {
+          kind: { type: "string", enum: ["task", "habit", "note"] },
+          title: { type: "string", description: "Título claro y breve del registro." },
+          details: { type: "string", description: "Descripción o contexto adicional." },
+          category: { type: "string", description: "Categoría del registro si aplica." },
+          due_date: { type: ["string", "null"], description: "Fecha límite YYYY-MM-DD solo para tareas; null si no tiene fecha." },
+          frequency: { type: "string", description: "Frecuencia del hábito, por ejemplo Diaria, Semanal o Mensual." }
+        },
+        required: ["kind", "title"],
+        additionalProperties: false
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "update_record",
+      description: "Edita una tarea, hábito o nota existente que aparezca en el contexto de DEMIAN CORE. Usa su id interno del contexto; nunca inventes ids ni actualices un registro si no identificaste con claridad cuál es.",
+      parameters: {
+        type: "object",
+        properties: {
+          record_id: { type: "integer" },
+          title: { type: "string" },
+          details: { type: "string" },
+          category: { type: "string" },
+          due_date: { type: ["string", "null"], description: "Fecha YYYY-MM-DD o null para quitar la fecha límite de una tarea." },
+          frequency: { type: "string" }
+        },
+        required: ["record_id"],
+        additionalProperties: false
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "complete_record",
+      description: "Marca una tarea como completada o activa, o registra/quita el cumplimiento de hoy de un hábito. Solo si el usuario pidió completar, terminar, marcar como hecho o deshacerlo.",
+      parameters: {
+        type: "object",
+        properties: {
+          record_id: { type: "integer" },
+          completed: { type: "boolean" }
+        },
+        required: ["record_id", "completed"],
+        additionalProperties: false
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "propose_financial_transaction",
+      description: "Prepara un nuevo ingreso o gasto de FLUX cuando el usuario pida registrar dinero. Esta herramienta NUNCA guarda el movimiento: siempre genera una tarjeta para que el usuario lo confirme explícitamente antes de escribir en Finanzas. No inventes monto, categoría ni cuenta. Usa solo cuentas/categorías exactas que aparezcan en el contexto.",
+      parameters: {
+        type: "object",
+        properties: {
+          transaction_type: { type: "string", enum: ["income", "expense"] },
+          amount: { type: "number", exclusiveMinimum: 0 },
+          category: { type: "string" },
+          description: { type: "string" },
+          account_name: { type: "string" },
+          date: { type: "string", description: "Fecha YYYY-MM-DD; si el usuario no indicó fecha usa la fecha local del contexto." }
+        },
+        required: ["transaction_type", "amount", "category", "description", "account_name"],
+        additionalProperties: false
+      }
+    }
+  }
+] as const;
+
+async function askOpenRouterWithTools(instructions: string, history: ChatMessage[]): Promise<AssistantToolTurn> {
   if (!OPENROUTER_API_KEY) throw new Error("OpenRouter Free no está configurado en el servidor.");
-  return await askOpenRouter(instructions, history);
+  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + OPENROUTER_API_KEY,
+      "HTTP-Referer": "https://demian-life-os-web-production.up.railway.app",
+      "X-Title": "DEMIAN CORE"
+    },
+    body: JSON.stringify({
+      model: OPENROUTER_MODEL,
+      messages: [{ role: "system", content: instructions }, ...history],
+      tools: assistantTools,
+      tool_choice: "auto",
+      max_tokens: 1600,
+      temperature: 0.2,
+      stream: false
+    }),
+    signal: AbortSignal.timeout(60_000)
+  });
+  const result = await response.json().catch(() => ({})) as Record<string, unknown>;
+  if (!response.ok) throw new ProviderFailure(response.status, "OpenRouter");
+  const choices = Array.isArray(result.choices) ? result.choices as Array<Record<string, unknown>> : [];
+  const first = choices[0] || {};
+  const message = first.message && typeof first.message === "object" ? first.message as Record<string, unknown> : {};
+  const reply = typeof message.content === "string" ? message.content.trim() : "";
+  const toolCalls = Array.isArray(message.tool_calls) ? message.tool_calls.filter((call): call is AssistantToolCall => {
+    if (!call || typeof call !== "object") return false;
+    const item = call as Record<string, unknown>;
+    const fn = item.function && typeof item.function === "object" ? item.function as Record<string, unknown> : {};
+    return typeof item.id === "string" && typeof fn.name === "string" && typeof fn.arguments === "string";
+  }) : [];
+  if (!reply && toolCalls.length === 0) throw new ProviderFailure(502, "OpenRouter");
+  return {
+    reply,
+    provider: "OpenRouter Free",
+    model: typeof result.model === "string" ? result.model : OPENROUTER_MODEL,
+    toolCalls
+  };
 }
 function unauthenticated() {
   return json({ ok: false, error: "Inicia sesión en DEMIAN CORE para usar DEMIAN." }, 401);
