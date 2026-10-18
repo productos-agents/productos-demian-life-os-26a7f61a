@@ -148,6 +148,32 @@ export default function Home() {
   },[]);
   useEffect(()=>{ void refresh(); },[refresh]);
   useEffect(()=>{
+    let cancelled=false;
+    void fetch("/api/push/subscription",{cache:"no-store"}).then(r=>r.json()).then(d=>{
+      if(!cancelled){setPushEnabled(d?.ok===true&&d.subscribed===true);setReminders(d?.ok===true&&d.subscribed===true);}
+    }).catch(()=>{});
+    return ()=>{cancelled=true;};
+  },[]);
+  useEffect(()=>{
+    const params=new URLSearchParams(window.location.search);
+    const routine=params.get("demianPrompt");
+    if(routine==="mood"){
+      setRoutineSlot(params.get("slot")||"manual");setRoutineDialog("mood");
+    } else if(routine==="money"){
+      setSection("transaction");setRoutineDialog("money");
+    } else if(routine==="reminder"){
+      setSection("task");setRoutineDialog("reminder");
+    } else if(routine==="motivation"){
+      setDailyWord({word:params.get("word")||"Constancia",message:params.get("message")||"Los pasos pequeños que repites hoy construyen un mañana más sólido."});
+      setRoutineDialog("motivation");
+    }
+    if(routine){
+      params.delete("demianPrompt");params.delete("slot");params.delete("word");params.delete("message");
+      const search=params.toString();
+      window.history.replaceState({}, "", window.location.pathname+(search?"?"+search:"")+window.location.hash);
+    }
+  },[]);
+  useEffect(()=>{
     const interval=window.setInterval(()=>{
       const next=getMexicoDateKey();
       setQuoteDay(current=>current===next?current:next);
