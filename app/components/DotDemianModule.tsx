@@ -1,0 +1,307 @@
+"use client";
+
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import LineIcon from "./LineIcon";
+
+type Role = "user" | "assistant";
+type Message = { id?: number; role: Role; content: string; created_at?: string };
+type Conversation = { id: string; title: string; updated_at: string };
+type ApiError = { ok?: false; error?: string };
+
+async function api<T>(url: string, options?: RequestInit): Promise<T> {
+  const response = await fetch(url, {
+    ...options,
+    cache: "no-store",
+    headers: { "Content-Type": "application/json", ...(options?.headers || {}) }
+  });
+  const data = await response.json().catch(() => ({})) as T & ApiError;
+  if (!response.ok || data.ok === false) throw new Error(data.error || "No se pudo completar la solicitud.");
+  return data;
+}
+
+const quickPrompts = [
+  { title: "Organiza mi día", text: "Ayúdame a organizar mi día con prioridades y pasos concretos." },
+  { title: "Aclara una decisión", text: "Ayúdame a comparar opciones, riesgos y beneficios de una decisión." },
+  { title: "Desarrolla una idea", text: "Ayúdame a convertir una idea en un plan sencillo, paso a paso." }
+];
+
+export default function DotDemianModule() {
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [draft, setDraft] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [configured, setConfigured] = useState(false);
+  const [provider, setProvider] = useState("IA gratuita");
+  const [error, setError] = useState("");
+  const feed = useRef<HTMLDivElement>(null);
+  const input = useRef<HTMLTextAreaElement>(null);
+
+  const scrollToLatest = useCallback(() => {
+    requestAnimationFrame(() => feed.current?.scrollTo({ top: feed.current.scrollHeight, behavior: "smooth" }));
+  }, []);
+
+  const refreshConversations = useCallback(async () => {
+    const data = await api<{ conversations: Conversation[]; configured: boolean; provider: string }>("/api/assistant");
+    setConversations(data.conversations || []);
+    setConfigured(data.configured === true);
+    setProvider(data.provider || "IA gratuita");
+    return data.conversations || [];
+  }, []);
+
+  const openConversation = useCallback(async (id: string) => {
+    setActiveId(id);
+    setMessages([]);
+    setError("");
+    try {
+      const data = await api<{ messages: Message[] }>("/api/assistant?conversationId=" + encodeURIComponent(id));
+      setMessages(data.messages || []);
+      scrollToLatest();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo abrir la conversación.");
+    }
+  }, [scrollToLatest]);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const data = await api<{ conversations: Conversation[]; configured: boolean; provider: string }>("/api/assistant");
+        if (!mounted) return;
+        setConversations(data.conversations || []);
+        setConfigured(data.configured === true);
+        setProvider(data.provider || "IA gratuita");
+        if (data.conversations?.[0]) {
+          const first = await api<{ messages: Message[] }>("/api/assistant?conversationId=" + encodeURIComponent(data.conversations[0].id));
+          if (!mounted) return;
+          setActiveId(data.conversations[0].id);
+          setMessages(first.messages || []);
+        }
+      } catch (e) {
+        if (mounted) setError(e instanceof Error ? e.message : "No se pudo abrir DOT DEMIAN.");
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  useEffect(() => { scrollToLatest(); }, [messages, scrollToLatest]);
+
+  function newConversation() {
+    setActiveId(null);
+    setMessages([]);
+    setDraft("");
+    setError("");
+    input.current?.focus();
+  }
+
+  async function sendMessage(text = draft) {
+    const message = text.trim();
+    if (!message || sending) return;
+    if (!configured) {
+      setError("La IA gratuita aún no está activada en el servidor. No necesitas crear otra cuenta; falta configurar la clave del proveedor.");
+      return;
+    }
+    setSending(true);
+    setError("");
+    setDraft("");
+    setMessages(previous => [...previous, { role: "user", content: message }]);
+    try {
+      const data = await api<{ conversationId: string; reply: string }>("/api/assistant", {
+        method: "POST",
+        body: JSON.stringify({ message, conversationId: activeId })
+      });
+      setActiveId(data.conversationId);
+      setMessages(previous => [...previous, { role: "assistant", content: data.reply }]);
+      await refreshConversations();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo obtener una respuesta. Inténtalo de nuevo.");
+    } finally {
+      setSending(false);
+      input.current?.focus();
+    }
+  }
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void sendMessage();
+  }
+
+  return (
+    <section className="dotDemian">
+      <header className="dotDemianHeader">
+        <div className="dotDemianBrand">
+          <span className="dotDemianOrb"><LineIcon name="brain" size={23} /></span>
+          <div>
+            <p className="eyebrow">DEMIAN CORE / ASISTENTE</p>
+            <h1>DOT DEMIAN<span>.</span></h1>
+            <p className="dotDemianSubtitle">Tu copiloto personal, dentro de tu espacio.</p>
+          </div>
+        </div>
+        <div className={configured ? "dotDemianBadge ready" : "dotDemianBadge"}>
+          <span />
+          {configured ? provider : "IA por activar"}
+        </div>
+      </header>
+
+      <div className="dotDemianLayout">
+        <aside className="dotDemianHistory">
+          <button type="button" className="dotDemianNew" onClick={newConversation}>
+            <LineIcon name="plus" size={16} /> Nueva conversación
+          </button>
+          <p className="dotDemianHistoryLabel">TUS CONVERSACIONES</p>
+          {loading ? <p className="dotDemianMuted">Cargando historial…</p> : conversations.length ? (
+            <div className="dotDemianConversationList">
+              {conversations.map(conversation => (
+                <button
+                  type="button"
+                  key={conversation.id}
+                  className={activeId === conversation.id ? "dotDemianConversation active" : "dotDemianConversation"}
+                  onClick={() => void openConversation(conversation.id)}
+                >
+                  <LineIcon name="book-open" size={15} />
+                  <span>{conversation.title || "Nueva conversación"}</span>
+                </button>
+              ))}
+            </div>
+          ) : <p className="dotDemianMuted">Aquí aparecerán las conversaciones que guardes.</p>}
+          <div className="dotDemianHistoryPrivacy">
+            <LineIcon name="check-circle" size={15} />
+            Historial separado por cuenta
+          </div>
+        </aside>
+
+        <div className="dotDemianChat">
+          <div className="dotDemianChatTop">
+            <div><b>Tu asistente</b><small>Espacio privado de DEMIAN CORE</small></div>
+            <span className={configured ? "dotDemianLive" : "dotDemianLive pending"}><i />{configured ? "Listo" : "Pendiente"}</span>
+          </div>
+
+          <div className="dotDemianFeed" ref={feed} aria-live="polite">
+            {!messages.length && (
+              <div className="dotDemianWelcome">
+                <span className="dotDemianWelcomeIcon"><LineIcon name="sparkles" size={24} /></span>
+                <h2>¿Qué hacemos hoy?</h2>
+                <p>Escribe con tus propias palabras. Puedes pedir ideas, organizar tareas, analizar opciones o construir un plan.</p>
+                <div className="dotDemianPrompts">
+                  {quickPrompts.map(prompt => (
+                    <button key={prompt.title} type="button" onClick={() => void sendMessage(prompt.text)} disabled={sending || !configured}>
+                      <b>{prompt.title}</b><span>{prompt.text}</span>
+                    </button>
+                  ))}
+                </div>
+                {!configured && <div className="dotDemianSetupNote">El módulo ya está conectado a la aplicación. Falta activar la clave del motor gratuito en el servidor.</div>}
+              </div>
+            )}
+            {messages.map((message, index) => (
+              <article key={message.id ?? index} className={message.role === "user" ? "dotDemianMessage user" : "dotDemianMessage assistant"}>
+                <span className="dotDemianMessageAvatar">{message.role === "assistant" ? <LineIcon name="brain" size={16} /> : "T"}</span>
+                <div className="dotDemianMessageBody">
+                  <small>{message.role === "assistant" ? "DOT DEMIAN" : "TÚ"}</small>
+                  <p>{message.content}</p>
+                </div>
+              </article>
+            ))}
+            {sending && <div className="dotDemianTyping"><span /><span /><span /> DOT DEMIAN está pensando…</div>}
+            <div className="dotDemianBottomAnchor" />
+          </div>
+
+          <form className="dotDemianComposer" onSubmit={submit}>
+            <textarea
+              ref={input}
+              value={draft}
+              onChange={event => setDraft(event.target.value)}
+              onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void sendMessage(); } }}
+              placeholder={configured ? "Escribe tu pregunta o lo que necesitas resolver…" : "Activa primero la IA gratuita en el servidor…"}
+              rows={2}
+              maxLength={8000}
+              aria-label="Mensaje para DOT DEMIAN"
+              disabled={!configured || sending}
+            />
+            <div className="dotDemianComposerFoot">
+              <small>Enter para enviar · Shift + Enter para una nueva línea</small>
+              <button type="submit" className="dotDemianSend" disabled={!draft.trim() || sending || !configured}>
+                {sending ? "Pensando…" : "Enviar"} <LineIcon name="arrow-up" size={15} />
+              </button>
+            </div>
+          </form>
+          {error && <p className="dotDemianError" role="alert">{error}</p>}
+          <p className="dotDemianNotice">La IA usa un proveedor externo. No incluyas contraseñas ni información de pago. Verifica lo importante antes de actuar.</p>
+        </div>
+      </div>
+
+      <style jsx>{`
+        .dotDemian{display:grid;gap:20px;color:var(--text,#e8edf1)}
+        .dotDemianHeader{display:flex;justify-content:space-between;align-items:center;gap:18px;flex-wrap:wrap}
+        .dotDemianBrand{display:flex;align-items:center;gap:14px;min-width:0}
+        .dotDemianOrb{width:58px;height:58px;display:grid;place-items:center;flex-shrink:0;color:var(--green,#b7f35a);border:1px solid color-mix(in srgb,var(--green,#b7f35a) 55%,#303840);border-radius:19px;background:radial-gradient(circle at 30% 20%,color-mix(in srgb,var(--green,#b7f35a) 16%,transparent),transparent 72%),#101518;box-shadow:0 0 28px color-mix(in srgb,var(--green,#b7f35a) 9%,transparent)}
+        .dotDemianHeader h1{font-size:clamp(25px,3.5vw,34px);font-weight:850;letter-spacing:-.045em;margin:4px 0}
+        .dotDemianHeader h1 span{color:var(--green,#b7f35a)}
+        .dotDemianHeader .eyebrow{margin:0;font-size:9px;letter-spacing:.15em;color:var(--muted,#8e9aa3);font-weight:800}
+        .dotDemianSubtitle{margin:0;color:var(--muted,#99a4ac);font-size:12px;line-height:1.5}
+        .dotDemianBadge{display:flex;align-items:center;gap:8px;padding:8px 11px;border:1px solid #353f46;border-radius:999px;color:#b6c0c7;font-size:10px;background:#12171a}
+        .dotDemianBadge span,.dotDemianLive i{width:7px;height:7px;border-radius:50%;background:#e7a447;display:inline-block}
+        .dotDemianBadge.ready span,.dotDemianLive:not(.pending) i{background:#7beaac;box-shadow:0 0 10px #7beaac55}
+        .dotDemianLayout{display:grid;grid-template-columns:220px minmax(0,1fr);gap:14px;min-width:0;align-items:stretch}
+        .dotDemianHistory,.dotDemianChat{border:1px solid var(--border,#30383f);border-radius:15px;background:linear-gradient(155deg,#14191d,#0d1113);min-width:0}
+        .dotDemianHistory{padding:12px;display:flex;flex-direction:column;gap:11px;min-height:560px}
+        .dotDemianNew{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;border:1px solid color-mix(in srgb,var(--green,#b7f35a) 45%,#30383f);border-radius:9px;padding:11px;background:color-mix(in srgb,var(--green,#b7f35a) 8%,#111619);color:var(--green,#b7f35a);font-size:11px;font-weight:800;cursor:pointer}
+        .dotDemianHistoryLabel{margin:10px 0 0;color:#77838c;font-size:8px;letter-spacing:.14em;font-weight:800}
+        .dotDemianMuted{font-size:10px;line-height:1.6;color:#77838c;margin:0;padding:7px 2px}
+        .dotDemianConversationList{display:grid;gap:4px;overflow:auto;max-height:360px}
+        .dotDemianConversation{width:100%;display:flex;align-items:center;text-align:left;gap:8px;border:1px solid transparent;border-radius:8px;padding:9px 8px;background:transparent;color:#aeb9c0;font-size:10px;cursor:pointer;min-width:0}
+        .dotDemianConversation span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .dotDemianConversation.active,.dotDemianConversation:hover{border-color:#303b42;background:#1a2126;color:#f1f4f6}
+        .dotDemianConversation :global(svg){flex-shrink:0;color:var(--green,#b7f35a)}
+        .dotDemianHistoryPrivacy{display:flex;gap:7px;align-items:flex-start;margin-top:auto;padding-top:12px;border-top:1px solid #293238;color:#809099;font-size:9px;line-height:1.5}
+        .dotDemianHistoryPrivacy :global(svg){color:var(--green,#b7f35a);flex-shrink:0}
+        .dotDemianChat{display:flex;flex-direction:column;min-height:560px;overflow:hidden}
+        .dotDemianChatTop{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 17px;border-bottom:1px solid #283138}
+        .dotDemianChatTop b{display:block;font-size:11px;color:#e3e9ed}
+        .dotDemianChatTop small{display:block;margin-top:4px;font-size:9px;color:#7c8991}
+        .dotDemianLive{display:flex;align-items:center;gap:7px;color:#7beaac;font-size:9px;font-weight:800}
+        .dotDemianLive.pending{color:#dfad62}
+        .dotDemianLive.pending i{background:#dfad62}
+        .dotDemianFeed{flex:1;min-height:310px;max-height:calc(100dvh - 330px);overflow:auto;padding:22px 18px;scroll-behavior:smooth}
+        .dotDemianWelcome{max-width:620px;margin:5px auto 20px;text-align:center}
+        .dotDemianWelcomeIcon{width:46px;height:46px;margin:0 auto 12px;display:grid;place-items:center;border:1px solid #364239;border-radius:15px;background:#151e19;color:var(--green,#b7f35a)}
+        .dotDemianWelcome h2{margin:0;font-size:clamp(21px,2.6vw,28px);letter-spacing:-.035em}
+        .dotDemianWelcome>p{max-width:500px;margin:10px auto 19px;color:#8d99a2;font-size:11px;line-height:1.7}
+        .dotDemianPrompts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;text-align:left}
+        .dotDemianPrompts button{display:grid;align-content:start;gap:7px;padding:12px;border:1px solid #303a41;border-radius:10px;background:#11171a;color:#e2e7ea;text-align:left;cursor:pointer;min-width:0}
+        .dotDemianPrompts button:hover:not(:disabled){border-color:color-mix(in srgb,var(--green,#b7f35a) 45%,#303a41)}
+        .dotDemianPrompts button b{font-size:10px}
+        .dotDemianPrompts button span{font-size:9px;line-height:1.5;color:#89959d}
+        .dotDemianPrompts button:disabled{opacity:.48;cursor:not-allowed}
+        .dotDemianSetupNote{margin-top:14px;padding:11px;border:1px solid #59472d;border-radius:9px;background:#241e14;color:#e6c38c;font-size:10px;line-height:1.6;text-align:left}
+        .dotDemianMessage{display:flex;align-items:flex-start;gap:10px;margin:0 0 20px;max-width:92%}
+        .dotDemianMessage.user{margin-left:auto;flex-direction:row-reverse}
+        .dotDemianMessageAvatar{display:grid;place-items:center;width:29px;height:29px;flex-shrink:0;border:1px solid #333e45;border-radius:9px;background:#141a1e;color:var(--green,#b7f35a);font-size:10px;font-weight:900}
+        .dotDemianMessage.user .dotDemianMessageAvatar{background:var(--green,#b7f35a);color:#0b0e0f;border-color:transparent}
+        .dotDemianMessageBody{min-width:0}
+        .dotDemianMessageBody small{display:block;margin:2px 0 6px;color:#85919a;font-size:8px;letter-spacing:.1em;font-weight:800}
+        .dotDemianMessage.user .dotDemianMessageBody{text-align:right}
+        .dotDemianMessageBody p{margin:0;color:#e0e6ea;font-size:12px;line-height:1.8;white-space:pre-wrap;overflow-wrap:anywhere}
+        .dotDemianTyping{display:flex;align-items:center;gap:6px;margin:10px 0 18px;color:#8b989f;font-size:10px}
+        .dotDemianTyping span{width:5px;height:5px;border-radius:50%;background:var(--green,#b7f35a);animation:dotAiPulse 1s infinite ease-in-out}
+        .dotDemianTyping span:nth-child(2){animation-delay:.15s}.dotDemianTyping span:nth-child(3){animation-delay:.3s}
+        @keyframes dotAiPulse{0%,80%,100%{opacity:.35;transform:translateY(0)}40%{opacity:1;transform:translateY(-3px)}}
+        .dotDemianBottomAnchor{height:1px}
+        .dotDemianComposer{padding:13px 15px;border-top:1px solid #283138;background:#0c1012}
+        .dotDemianComposer textarea{width:100%;resize:vertical;box-sizing:border-box;border:1px solid #354148;border-radius:10px;background:#12181b;color:#e9edf0;padding:11px 12px;font:inherit;font-size:11px;line-height:1.7;outline:none}
+        .dotDemianComposer textarea:focus{border-color:color-mix(in srgb,var(--green,#b7f35a) 55%,#354148);box-shadow:0 0 0 3px color-mix(in srgb,var(--green,#b7f35a) 10%,transparent)}
+        .dotDemianComposer textarea:disabled{opacity:.65}
+        .dotDemianComposerFoot{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:9px}
+        .dotDemianComposerFoot small{color:#6f7c84;font-size:8px}
+        .dotDemianSend{display:flex;align-items:center;gap:7px;border:0;border-radius:8px;padding:9px 13px;background:var(--green,#b7f35a);color:#0b0e0f;font-size:10px;font-weight:900;cursor:pointer}
+        .dotDemianSend:disabled{opacity:.45;cursor:not-allowed}
+        .dotDemianError{margin:10px 0 0;padding:10px 12px;border:1px solid #71434a;border-radius:9px;background:#27181a;color:#ffb3b9;font-size:10px;line-height:1.6}
+        .dotDemianNotice{margin:0;padding:0 14px 13px;color:#6f7c84;font-size:8px;line-height:1.55}
+        @media(max-width:900px){.dotDemianLayout{grid-template-columns:1fr}.dotDemianHistory{min-height:0;order:2}.dotDemianConversationList{max-height:150px}.dotDemianHistoryPrivacy{margin-top:8px}.dotDemianChat{min-height:520px}.dotDemianFeed{max-height:56vh}}
+        @media(max-width:580px){.dotDemianHeader{align-items:flex-start}.dotDemianOrb{width:48px;height:48px;border-radius:15px}.dotDemianHeader h1{font-size:25px}.dotDemianSubtitle{font-size:10px}.dotDemianFeed{padding:18px 12px;max-height:58vh}.dotDemianPrompts{grid-template-columns:1fr}.dotDemianPrompts button{padding:10px}.dotDemianMessage{max-width:100%}.dotDemianComposer{padding:11px}.dotDemianComposerFoot small{max-width:55%;line-height:1.5}}
+      `}</style>
+    </section>
+  );
+}
