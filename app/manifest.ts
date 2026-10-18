@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: "/",
-    name: "DEMian Life OS",
-    short_name: "DEMian",
+    name: "DEMIAN CORE",
+    short_name: "DEMIAN CORE",
     description: "Tu centro personal para agenda, finanzas, hábitos y conocimiento.",
     start_url: "/",
     scope: "/",
@@ -14,6 +14,7 @@ export default function manifest(): MetadataRoute.Manifest {
     lang: "es-MX",
     categories: ["productivity", "lifestyle", "finance"],
     icons: [
+      { src: "/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
       { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
       { src: "/icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any" }
     ]
