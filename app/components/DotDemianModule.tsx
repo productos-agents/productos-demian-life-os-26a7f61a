@@ -8,7 +8,8 @@ type Message = { id?: number; role: Role; content: string; created_at?: string }
 type Conversation = { id: string; title: string; updated_at: string };
 type ApiError = { ok?: false; error?: string };
 type PendingAction = {
-  type: "finance.transaction.create";
+  type: "finance.transaction.create" | "finance.transaction.update";
+  transactionId?: string;
   transactionType: "income" | "expense";
   amount: number;
   category: string;
@@ -253,7 +254,7 @@ export default function DotDemianModule() {
                 <span><LineIcon name="wallet" size={17} /></span>
                 <div>
                   <small>CONFIRMA ANTES DE GUARDAR</small>
-                  <b>{pendingAction.transactionType === "expense" ? "Registrar gasto" : "Registrar ingreso"}</b>
+                  <b>{pendingAction.type === "finance.transaction.update" ? "Actualizar movimiento" : pendingAction.transactionType === "expense" ? "Registrar gasto" : "Registrar ingreso"}</b>
                 </div>
               </div>
               <strong className="dotDemianActionAmount">${pendingAction.amount.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MXN</strong>
@@ -264,7 +265,7 @@ export default function DotDemianModule() {
                 <div><dt>Fecha</dt><dd>{pendingAction.date}</dd></div>
               </dl>
               <div className="dotDemianActionButtons">
-                <button type="button" onClick={() => void confirmPendingAction()} disabled={sending || !activeId}>{sending ? "Guardando…" : "Confirmar y registrar"}</button>
+                <button type="button" onClick={() => void confirmPendingAction()} disabled={sending || !activeId}>{sending ? "Guardando…" : pendingAction.type === "finance.transaction.update" ? "Confirmar cambios" : "Confirmar y registrar"}</button>
                 <button type="button" onClick={() => setPendingAction(null)} disabled={sending}>Cancelar</button>
               </div>
             </div>
