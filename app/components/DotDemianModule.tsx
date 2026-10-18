@@ -79,7 +79,7 @@ export default function DotDemianModule() {
           setMessages(first.messages || []);
         }
       } catch (e) {
-        if (mounted) setError(e instanceof Error ? e.message : "No se pudo abrir DOT DEMIAN.");
+        if (mounted) setError(e instanceof Error ? e.message : "No se pudo abrir DEMIAN.");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -136,8 +136,8 @@ export default function DotDemianModule() {
           <span className="dotDemianOrb"><LineIcon name="brain" size={23} /></span>
           <div>
             <p className="eyebrow">DEMIAN CORE / ASISTENTE</p>
-            <h1>DOT DEMIAN<span>.</span></h1>
-            <p className="dotDemianSubtitle">Tu copiloto personal, dentro de tu espacio.</p>
+            <h1>DEMIAN<span>.</span></h1>
+            <p className="dotDemianSubtitle">Estoy aquí para ayudarte con lo que tienes entre manos.</p>
           </div>
         </div>
         <div className={configured ? "dotDemianBadge ready" : "dotDemianBadge"}>
@@ -199,12 +199,12 @@ export default function DotDemianModule() {
               <article key={message.id ?? index} className={message.role === "user" ? "dotDemianMessage user" : "dotDemianMessage assistant"}>
                 <span className="dotDemianMessageAvatar">{message.role === "assistant" ? <LineIcon name="brain" size={16} /> : "T"}</span>
                 <div className="dotDemianMessageBody">
-                  <small>{message.role === "assistant" ? "DOT DEMIAN" : "TÚ"}</small>
-                  <p>{message.content}</p>
+                  <small>{message.role === "assistant" ? "DEMIAN" : "TÚ"}</small>
+                  <p>{message.role === "assistant" ? message.content.replace(/\*\*DOT DEMIAN\*\*/gi, "DEMIAN").replace(/\bDOT DEMIAN\b/gi, "DEMIAN") : message.content}</p>
                 </div>
               </article>
             ))}
-            {sending && <div className="dotDemianTyping"><span /><span /><span /> DOT DEMIAN está pensando…</div>}
+            {sending && <div className="dotDemianTyping"><span /><span /><span /> DEMIAN está pensando…</div>}
             <div className="dotDemianBottomAnchor" />
           </div>
 
@@ -217,7 +217,7 @@ export default function DotDemianModule() {
               placeholder={configured ? "Escribe tu pregunta o lo que necesitas resolver…" : "El motor gratuito no está disponible por ahora…"}
               rows={2}
               maxLength={8000}
-              aria-label="Mensaje para DOT DEMIAN"
+              aria-label="Mensaje para DEMIAN"
               disabled={!configured || sending}
             />
             <div className="dotDemianComposerFoot">
@@ -228,7 +228,7 @@ export default function DotDemianModule() {
             </div>
           </form>
           {error && <p className="dotDemianError" role="alert">{error}</p>}
-          <p className="dotDemianNotice">Proveedor: OpenRouter Free. Tus mensajes se envían a un proveedor externo para generar respuestas. No incluyas contraseñas, datos financieros ni información sensible.</p>
+          <p className="dotDemianNotice">Uso OpenRouter Free para responder. Cuando me pidas consultar tus tareas, hábitos, notas o finanzas, envío solo los datos relevantes de tu cuenta al proveedor para elaborar la respuesta. No incluyas contraseñas ni datos de acceso.</p>
         </div>
       </div>
 
