@@ -39,6 +39,22 @@ test('global search queries full personal and FLUX history server-side with owne
   assert.match(route, /LIMIT 8/);
 });
 
+
+test('habit completion respects daily, weekly, monthly and weekday frequencies', async () => {
+  const route = await read('../app/api/data/route.ts');
+  const wellness = await read('../app/components/WellnessModule.tsx');
+  assert.match(route, /done_this_week/);
+  assert.match(route, /done_this_month/);
+  assert.match(route, /frequency === "semanal"/);
+  assert.match(route, /frequency === "mensual"/);
+  assert.match(route, /date_trunc\('week'/);
+  assert.match(route, /date_trunc\('month'/);
+  assert.match(wellness, /<option>Mensual<\/option>/);
+  assert.match(wellness, /Semanal: una vez por semana/);
+  assert.match(wellness, /doneForPeriod/);
+  assert.match(wellness, /disabled={!due}/);
+});
+
 test('both official in-app signatures use the shared dynamic version', async () => {
   const home = await read('../app/page.tsx');
   const login = await read('../app/login/page.tsx');

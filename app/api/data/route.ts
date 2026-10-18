@@ -33,7 +33,12 @@ function safeItem(r: Record<string, unknown>) {
     amount: r.amount == null ? null : Number(r.amount), category: r.category ?? "",
     dueDate: r.due_date ? String(r.due_date).slice(0, 10) : "",
     status: r.status ?? "active", frequency: r.frequency ?? "",
-    doneToday: r.done_today === true, pinned: r.kind === "note" && r.status === "pinned",
+    doneToday: r.done_today === true,
+    doneThisWeek: r.done_this_week === true,
+    doneThisMonth: r.done_this_month === true,
+    doneForPeriod: String(r.frequency ?? "").toLowerCase() === "semanal" ? r.done_this_week === true : String(r.frequency ?? "").toLowerCase() === "mensual" ? r.done_this_month === true : r.done_today === true,
+    isDueToday: String(r.frequency ?? "").toLowerCase() === "personalizado" ? false : String(r.frequency ?? "").toLowerCase() === "entre semana" ? new Date(String(r.reference_date ?? new Date().toISOString().slice(0,10)) + "T12:00:00Z").getUTCDay() > 0 && new Date(String(r.reference_date ?? new Date().toISOString().slice(0,10)) + "T12:00:00Z").getUTCDay() < 6 : true,
+    pinned: r.kind === "note" && r.status === "pinned",
     createdAt: r.created_at
   };
 }
@@ -42,7 +47,10 @@ function validDate(value: unknown): string | null {
   return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : null;
 }
 function itemsSql() {
-  return "SELECT i.*, EXISTS(SELECT 1 FROM public.demian_habit_logs h WHERE h.habit_id=i.id AND h.log_date=$1::date) AS done_today FROM public.demian_items i";
+  return "SELECT i.*, $1::date AS reference_date, " +
+    "EXISTS(SELECT 1 FROM public.demian_habit_logs h WHERE h.habit_id=i.id AND h.log_date=$1::date) AS done_today, " +
+    "EXISTS(SELECT 1 FROM public.demian_habit_logs h WHERE h.habit_id=i.id AND h.log_date>=date_trunc('week',$1::date)::date AND h.log_date<(date_trunc('week',$1::date)::date+INTERVAL '7 days')) AS done_this_week, " +
+    "EXISTS(SELECT 1 FROM public.demian_habit_logs h WHERE h.habit_id=i.id AND h.log_date>=date_trunc('month',$1::date)::date AND h.log_date<(date_trunc('month',$1::date)::date+INTERVAL '1 month')) AS done_this_month FROM public.demian_items i";
 }
 function unauthenticated() {
   return NextResponse.json({ ok: false, error: "Necesitas iniciar sesión." }, { status: 401, headers: noCache });
@@ -115,8 +123,18 @@ export async function PATCH(req: NextRequest) {
     const logDate = validDate(b.logDate) ?? new Date().toISOString().slice(0, 10);
 
     if (existing.kind === "habit" && typeof b.doneToday === "boolean") {
+      const frequency = String(existing.frequency ?? "").toLocaleLowerCase("es");
       if (b.doneToday) {
+        if (frequency === "semanal") {
+          await pool().query("DELETE FROM public.demian_habit_logs WHERE habit_id=$1 AND log_date>=date_trunc('week',$2::date)::date AND log_date<(date_trunc('week',$2::date)::date+INTERVAL '7 days')", [id, logDate]);
+        } else if (frequency === "mensual") {
+          await pool().query("DELETE FROM public.demian_habit_logs WHERE habit_id=$1 AND log_date>=date_trunc('month',$2::date)::date AND log_date<(date_trunc('month',$2::date)::date+INTERVAL '1 month')", [id, logDate]);
+        }
         await pool().query("INSERT INTO public.demian_habit_logs(habit_id,log_date) VALUES($1,$2::date) ON CONFLICT(habit_id,log_date) DO NOTHING", [id, logDate]);
+      } else if (frequency === "semanal") {
+        await pool().query("DELETE FROM public.demian_habit_logs WHERE habit_id=$1 AND log_date>=date_trunc('week',$2::date)::date AND log_date<(date_trunc('week',$2::date)::date+INTERVAL '7 days')", [id, logDate]);
+      } else if (frequency === "mensual") {
+        await pool().query("DELETE FROM public.demian_habit_logs WHERE habit_id=$1 AND log_date>=date_trunc('month',$2::date)::date AND log_date<(date_trunc('month',$2::date)::date+INTERVAL '1 month')", [id, logDate]);
       } else {
         await pool().query("DELETE FROM public.demian_habit_logs WHERE habit_id=$1 AND log_date=$2::date", [id, logDate]);
       }

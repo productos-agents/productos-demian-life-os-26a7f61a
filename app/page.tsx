@@ -295,7 +295,8 @@ export default function Home() {
   const financeBalance = financeAccounts.filter(a=>a.is_active).reduce((s,a)=>s+(a.account_type==="credit"?-Number(a.balance):Number(a.balance)),0);
   const financeMovementCount = monthFinanceTx.filter(t=>!t.transfer_group).length;
   const habits = items.filter(i=>i.kind==="habit");
-  const habitsDoneToday=habits.filter(i=>i.doneToday).length;
+  const trackedHabits=habits.filter(i=>i.frequency!=="Personalizado"&&i.isDueToday!==false);
+  const habitsDoneToday=trackedHabits.filter(i=>i.doneForPeriod??i.doneToday).length;
   const notes = items.filter(i=>i.kind==="note");
   useEffect(()=>{
     const term=query.trim();
@@ -575,7 +576,7 @@ export default function Home() {
           <div className="statGrid">
             <article className="statCard"><div className="statTop"><span className="statIcon"><LineIcon name="calendar-clock" size={20}/></span><span className="statHint">AGENDA</span></div><strong>{openTasks.length.toString().padStart(2,"0")}</strong><p>Pendientes activos</p><small>{dueTasks.length?dueTasks.length+" requieren atención":"Tu agenda bajo control"}</small></article>
             <article className="statCard"><div className="statTop"><span className="statIcon"><LineIcon name="wallet" size={20}/></span><span className="statHint">FINANZAS</span></div><strong>{financeConnection==="connected"?money(financeBalance):"—"}</strong><p>Saldo neto de cuentas</p><small>{financeConnection==="connected"?financeMovementCount+" movimientos este mes":financeConnection==="checking"?"Conectando con FLUX":"FLUX no disponible"}</small></article>
-            <article className="statCard"><div className="statTop"><span className="statIcon"><LineIcon name="heart-pulse" size={20}/></span><span className="statHint">BIENESTAR</span></div><strong>{habitsDoneToday.toString().padStart(2,"0")}</strong><p>Hábitos completados hoy</p><small>{habitsDoneToday} de {habits.length} registrados</small></article>
+            <article className="statCard"><div className="statTop"><span className="statIcon"><LineIcon name="heart-pulse" size={20}/></span><span className="statHint">BIENESTAR</span></div><strong>{habitsDoneToday.toString().padStart(2,"0")}</strong><p>Hábitos al día</p><small>{habitsDoneToday} de {trackedHabits.length} en su frecuencia</small></article>
             <article className="statCard"><div className="statTop"><span className="statIcon"><LineIcon name="book-open" size={20}/></span><span className="statHint">CONOCIMIENTO</span></div><strong>{notes.length.toString().padStart(2,"0")}</strong><p>Notas en tu cerebro</p><small>Ideas listas para recuperar</small></article>
           </div>
           <div className="dashboardGrid">
