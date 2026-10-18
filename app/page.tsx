@@ -93,6 +93,14 @@ const getDailyQuote = (dateKey = getMexicoDateKey()) => {
   const dayNumber = Math.floor(Date.parse(dateKey+"T00:00:00Z")/86400000);
   return dailyQuotes[((dayNumber%dailyQuotes.length)+dailyQuotes.length)%dailyQuotes.length];
 };
+function decodeVapidKey(value:string) {
+  const normalized=value.replace(/-/g,"+").replace(/_/g,"/");
+  const padded=normalized+"=".repeat((4-normalized.length%4)%4);
+  const raw=window.atob(padded);
+  const output=new Uint8Array(raw.length);
+  for(let i=0;i<raw.length;i++)output[i]=raw.charCodeAt(i);
+  return output;
+}
 export default function Home() {
   const [items,setItems] = useState<Item[]>([]);
   const [userName,setUserName] = useState("Mi espacio");
