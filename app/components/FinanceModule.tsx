@@ -2,6 +2,8 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { jsPDF } from "jspdf";
+import LineIcon from "./LineIcon";
+import type { LineIconName } from "./LineIcon";
 
 type Tab = "overview"|"transactions"|"accounts"|"budgets"|"goals"|"recurring"|"reports"|"categories";
 type Kind = "income"|"expense"|"transfer";
@@ -13,15 +15,15 @@ type Goal = {id:string;name:string;target_amount:number;current_amount:number;ta
 type Recurring = {id:string;name:string;type:"income"|"expense";category:string;description:string;amount:number;frequency:"weekly"|"biweekly"|"monthly"|"yearly";next_date:string;account_id:string|null;is_active:boolean};
 type FinanceData = {profile:{name:string;emailHint:string}|null;transactions:Tx[];accounts:Account[];categories:Category[];budgets:Budget[];goals:Goal[];recurring:Recurring[];preferences:{widgets?:Record<string,boolean>;chartMode?:string;[k:string]:unknown}};
 type Draft = {name:string;category:string;type:string;amount:string;description:string;date:string;accountId:string;openingBalance:string;accountType:string;period:string;startsOn:string;targetAmount:string;currentAmount:string;targetDate:string;frequency:string;nextDate:string;fromAccountId:string;toAccountId:string;color:string;icon:string};
-const tabs:{id:Tab;label:string;glyph:string}[]=[
-  {id:"overview",label:"Resumen",glyph:"⌂"},
-  {id:"transactions",label:"Movimientos",glyph:"↕"},
-  {id:"accounts",label:"Cuentas",glyph:"▣"},
-  {id:"budgets",label:"Presupuestos",glyph:"◴"},
-  {id:"goals",label:"Metas de ahorro",glyph:"◎"},
-  {id:"recurring",label:"Recurrentes",glyph:"⟳"},
-  {id:"reports",label:"Informes",glyph:"▥"},
-  {id:"categories",label:"Categorías",glyph:"▦"}
+const tabs:{id:Tab;label:string;icon:LineIconName}[]=[
+  {id:"overview",label:"Resumen",icon:"layout-grid"},
+  {id:"transactions",label:"Movimientos",icon:"arrow-down-up"},
+  {id:"accounts",label:"Cuentas",icon:"wallet-cards"},
+  {id:"budgets",label:"Presupuestos",icon:"chart-column"},
+  {id:"goals",label:"Metas de ahorro",icon:"target"},
+  {id:"recurring",label:"Recurrentes",icon:"repeat"},
+  {id:"reports",label:"Informes",icon:"chart-pie"},
+  {id:"categories",label:"Categorías",icon:"tags"}
 ];
 const isoToday=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");};
 const monthKey=(d=new Date())=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");
@@ -224,7 +226,7 @@ export default function FinanceModule(){
       <div><div className="fluxEyebrow"><span className="fluxLive"/> FLUX · FINANZAS PERSONALES</div><h1>Tu dinero,<br/><span>bajo control.</span></h1><p>El sistema completo de FLUX integrado a DEMian: registro manual, cálculos automáticos, cuentas, presupuestos, metas e informes.</p></div>
       <div className="fluxActions"><button className="fluxBtn ghost" onClick={()=>void refresh()} disabled={loading}>↻ Actualizar</button><button className="fluxBtn primary" onClick={()=>openNew("expense")}>＋ Movimiento</button></div>
     </div>
-    <div className="fluxTabs">{tabs.map(t=><button key={t.id} onClick={()=>{setTab(t.id);setFormOpen(false);setMessage("");setEditingBudget(null);setEditingRecurring(null);setAccountEdit(null);}} className={tab===t.id?"fluxTab active":"fluxTab"}><span>{t.glyph}</span>{t.label}</button>)}</div>
+    <div className="fluxTabs">{tabs.map(t=><button key={t.id} onClick={()=>{setTab(t.id);setFormOpen(false);setMessage("");setEditingBudget(null);setEditingRecurring(null);setAccountEdit(null);}} className={tab===t.id?"fluxTab active":"fluxTab"}><LineIcon name={t.icon} size={16}/>{t.label}</button>)}</div>
     {error&&<div className="fluxAlert error"><b>Conexión con FLUX pendiente</b><span>{error}</span><button onClick={()=>void refresh()}>Reintentar ↻</button></div>}
     {message&&<div className={message.includes("no ")||message.includes("No ")?"fluxAlert error":"fluxAlert"} role="status"><span>{message}</span><button onClick={()=>setMessage("")}>×</button></div>}
     {loading&&!data?<div className="fluxLoading"><div className="fluxSpinner"/><b>Conectando con FLUX</b><span>Consultando tus cuentas y movimientos.</span></div>:data&&<>
