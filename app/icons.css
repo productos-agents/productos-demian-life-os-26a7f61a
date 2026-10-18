@@ -1,5 +1,5 @@
 /* DEMian iconography: consistent outline set in vivid neon lime. */
-.lineIcon{display:inline-block;vertical-align:middle;flex:0 0 auto;color:var(--green,#C6FF00)!important;stroke:currentColor;fill:none;filter:drop-shadow(0 0 2px #C6FF0033)}
+.lineIcon{display:inline-block;vertical-align:middle;flex:0 0 auto;color:var(--green,#C6FF00)!important;stroke:currentColor;fill:none;filter:drop-shadow(0 0 3px color-mix(in srgb,var(--green) 28%,transparent))}
 .navGlyph{display:inline-flex;align-items:center;justify-content:center}
 .navGlyph .lineIcon{width:19px;height:19px}
 @media(max-width:760px){.navGlyph .lineIcon{width:20px;height:20px}}
