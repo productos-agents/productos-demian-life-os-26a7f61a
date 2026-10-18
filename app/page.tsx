@@ -138,6 +138,9 @@ function decodeVapidKey(value:string) {
 }
 export default function Home() {
   const [items,setItems] = useState<Item[]>([]);
+  const [itemsHasMore,setItemsHasMore] = useState(false);
+  const [itemsOffset,setItemsOffset] = useState(0);
+  const [loadingMoreItems,setLoadingMoreItems] = useState(false);
   const [userName,setUserName] = useState("Mi espacio");
   const [quoteDay,setQuoteDay] = useState(()=>getMexicoDateKey());
   const [sharingQuote,setSharingQuote] = useState(false);
@@ -180,7 +183,7 @@ export default function Home() {
       const r = await fetch("/api/data?date="+today(),{cache:"no-store"});
       const d = await r.json();
       if (!r.ok || !d.ok) throw new Error(d.error || "Error de conexión");
-      setItems(d.items); setConnection("connected");
+      setItems(d.items); setItemsHasMore(d.hasMore===true); setItemsOffset(Number(d.nextOffset??d.items.length)); setConnection("connected");
     } catch { setConnection("error"); }
     try {
       const r = await fetch("/api/finance",{cache:"no-store"});
@@ -191,6 +194,18 @@ export default function Home() {
     } catch { setFinanceSnapshot(null); setFinanceConnection("error"); }
     finally { setLoading(false); }
   },[]);
+  const loadMoreItems=async()=>{
+    if(loadingMoreItems||!itemsHasMore)return;
+    setLoadingMoreItems(true);
+    try{
+      const r=await fetch("/api/data?date="+today()+"&limit=500&offset="+itemsOffset,{cache:"no-store"});
+      const d=await r.json();
+      if(!r.ok||!d.ok)throw new Error(d.error||"No se pudieron cargar más registros.");
+      setItems(prev=>{const ids=new Set(prev.map(item=>item.id));return [...prev,...(d.items as Item[]).filter((item:Item)=>!ids.has(item.id))];});
+      setItemsHasMore(d.hasMore===true);setItemsOffset(Number(d.nextOffset??itemsOffset));setNotice("Historial actualizado.");
+    }catch(error){setNotice(error instanceof Error?error.message:"No se pudo cargar el historial.");}
+    finally{setLoadingMoreItems(false);}
+  };
   useEffect(()=>{ void refresh(); },[refresh]);
   useEffect(()=>{
     const handleShortcut=(event:KeyboardEvent)=>{
@@ -564,6 +579,7 @@ export default function Home() {
           <section className="panel recordsPanel"><div className="panelHead"><div><h3>{section==="task"?"Todas tus tareas":section==="habit"?"Tus hábitos":"Tu biblioteca"}</h3><p>{filtered.length} registros</p></div><span className="recordCount">{filtered.length} TOTAL</span></div>
             {loading?<div className="empty">Cargando registros…</div>:filtered.length?<div className="recordList">{filtered.map(i=><article className="record" key={i.id}><div className={"recordIcon "+i.kind}><LineIcon name={i.kind==="task"?"calendar-clock":i.kind==="transaction"?(i.category==="Ingreso"?"trending-up":"trending-down"):i.kind==="habit"?"heart-pulse":"book-open"} size={17}/></div><div className="recordMain"><b>{i.title}</b><p>{i.details||(i.kind==="habit"?i.frequency:i.category)||"Sin detalles adicionales"}</p><small>{i.dueDate?"Fecha: "+i.dueDate:i.createdAt?new Date(i.createdAt).toLocaleDateString("es-MX"):"Registro guardado"}</small></div>{i.kind==="transaction"&&<b className={i.category==="Ingreso"?"positive":"negative"}>{i.category==="Gasto"?"−":"+"}{money(i.amount||0)}</b>}{i.kind==="task"&&<><button className={i.status==="done"?"donePill":"pendingPill"} onClick={()=>void toggle(i)}>{i.status==="done"?"✓ Completada":"Marcar lista"}</button><button className="more taskEditButton" type="button" onClick={()=>editTask(i)} title="Editar tarea" aria-label={"Editar "+i.title}>✎</button></>}{i.kind==="habit"&&<button className={i.doneToday?"donePill":"pendingPill"} onClick={()=>void toggleHabit(i)}>{i.doneToday?"✓ Hecho hoy":"Marcar hoy"}</button>}<button className="deleteBtn" onClick={()=>void remove(i)} aria-label={"Eliminar "+i.title}>×</button></article>)}</div>:<div className="empty"><span><LineIcon name="sparkles" size={23}/></span><b>Aún no hay registros.</b><p>Agrega el primero y aquí quedará guardado.</p><button className="primaryBtn" onClick={()=>setFormOpen(true)}>＋ Crear registro</button></div>}
           </section>
+          {section==="task"&&itemsHasMore&&<div className="loadMoreWrap"><button className="outlineBtn" type="button" onClick={()=>void loadMoreItems()} disabled={loadingMoreItems}>{loadingMoreItems?"Cargando historial…":"Cargar más del historial"}</button></div>}
         </>}
         {notice&&section==="overview"&&<div className="notice" role="status">{notice}<button onClick={()=>setNotice("")}>×</button></div>}
         <footer className="footer developerSignature"><span className="signatureCaption">DEMIAN CORE {APP_VERSION} · DESARROLLADO POR J D O SERVICES</span><div className="signatureLogo"><img src="/jdo-services-logo.webp" alt="Logotipo oficial JDO Services" className="signatureLogoImage" /></div></footer>
