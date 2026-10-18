@@ -49,13 +49,18 @@ export async function GET(req: NextRequest) {
       "ORDER BY t.transaction_date DESC,t.created_at DESC,t.id DESC LIMIT 8",
       [fid, pattern]
     ) : Promise.resolve({ rows: [] as Record<string, unknown>[] });
-    const [itemsResult, financeResult, filesResult] = await Promise.allSettled([itemsQuery, financeQuery, filesQuery]);
+    const [itemsResult, financeResult] = await Promise.allSettled([itemsQuery, financeQuery]);
     if (itemsResult.status === "rejected") throw itemsResult.reason;
     const items = itemsResult.value;
-    const files = filesResult.status === "fulfilled" ? filesResult.value : { rows: [] as Record<string, unknown>[] };
     const finance = financeResult.status === "fulfilled" ? financeResult.value : { rows: [] as Record<string, unknown>[] };
-    if (filesResult.status === "rejected") console.error("DEMian search: file archive unavailable; returning other matches only.", filesResult.reason);
     if (financeResult.status === "rejected") console.error("DEMian search: financial history unavailable; returning personal matches only.", financeResult.reason);
+    let fileRows: Record<string, unknown>[] = [];
+    try {
+      const files = await filesQuery;
+      fileRows = files.rows as Record<string, unknown>[];
+    } catch (error) {
+      console.error("DEMian search: file archive unavailable; returning other matches only.", error);
+    }
     const itemResults = items.rows.map((item: Record<string, unknown>) => ({
       id: "item-" + String(item.id),
       title: String(item.title || "Registro sin título"),
@@ -72,7 +77,7 @@ export async function GET(req: NextRequest) {
       icon: "wallet",
       createdAt: item.created_at
     }));
-    const fileResults = files.rows.map((item: Record<string, unknown>) => ({
+    const fileResults = fileRows.map((item: Record<string, unknown>) => ({
       id: "file-" + String(item.id),
       title: String(item.note_title || item.file_name || "Archivo guardado"),
       subtitle: "Segundo cerebro · Archivo · " + String(item.category || "Pendiente de organizar") + (item.summary ? " · " + String(item.summary).slice(0, 90) : ""),
