@@ -1,0 +1,76 @@
+/* Accent themes: only the user's accent changes; the dark foundation remains unchanged. */
+:root{
+  --accent-border:#E8FF80;
+  --accent-soft:#1B2119;
+  --accent-border-muted:#303B27;
+  --accent-text:#DFF5C0;
+  --accent-glow:color-mix(in srgb,#C6FF00 36%,transparent);
+  --accent-ink:#080A0C;
+}
+.settingsTrigger{cursor:pointer;color:var(--green)!important;border-color:color-mix(in srgb,var(--green) 55%,#424950)!important;background:#171c20!important;box-shadow:0 0 0 1px color-mix(in srgb,var(--green) 10%,transparent);transition:border-color .18s,box-shadow .18s,color .18s}
+.settingsTrigger:hover,.settingsTrigger.active{border-color:var(--green)!important;box-shadow:0 0 0 2px color-mix(in srgb,var(--green) 18%,transparent),0 0 14px color-mix(in srgb,var(--green) 16%,transparent)}
+.settingsBackdrop{position:fixed;z-index:2000;inset:0;display:flex;align-items:flex-start;justify-content:flex-end;padding:76px 22px 22px;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);animation:appearanceFade .16s ease-out}
+.appearancePanel{width:min(100%,390px);max-height:calc(100dvh - 98px);overflow:auto;border:1px solid #343c42;border-radius:18px;background:linear-gradient(145deg,#161b1f,#0b0e10);color:#edf0f2;box-shadow:0 28px 100px #000a;padding:19px;animation:appearanceSlide .2s ease-out}
+.appearanceHead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding-bottom:17px;border-bottom:1px solid #2a3136}
+.appearanceBrand{display:flex;align-items:center;gap:11px;min-width:0}
+.appearanceJ{display:grid;place-items:center;width:42px;height:42px;flex-shrink:0;border:1px solid var(--green);border-radius:13px;color:var(--green);font:800 21px Manrope,sans-serif;box-shadow:0 0 17px var(--accent-glow)}
+.appearanceBrand p{font-size:8px;letter-spacing:.16em;color:#849099;margin:0 0 5px;font-weight:750}
+.appearanceBrand h2{font:750 17px/1.25 Manrope,sans-serif;color:#f1f4f6;letter-spacing:-.025em;margin:0}
+.appearanceClose{width:30px;height:30px;display:grid;place-items:center;flex-shrink:0;border:1px solid #333b41;border-radius:8px;background:#151a1e;color:#c2cbd1}
+.appearanceClose:hover{border-color:var(--green);color:var(--green)}
+.appearanceIntro{padding:16px 0 10px}
+.appearanceIntro>span{font-size:8px;letter-spacing:.16em;color:var(--green);font-weight:800}
+.appearanceIntro p{font-size:10px;line-height:1.55;color:#8e9aa2;margin:6px 0 0}
+.appearanceColorGrid{display:grid;grid-template-columns:1fr;gap:6px}
+.appearanceColorOption{width:100%;display:flex;align-items:center;gap:11px;min-height:58px;padding:9px 10px;border:1px solid #2b3339;border-radius:11px;background:#101417;color:#e8ecef;text-align:left;transition:background .15s,border-color .15s,box-shadow .15s}
+.appearanceColorOption:hover:not(:disabled){background:#171d21;border-color:#56616a}
+.appearanceColorOption.selected{background:var(--accent-soft);border-color:var(--green);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--green) 20%,transparent)}
+.appearanceColorOption:disabled{opacity:.8;cursor:wait}
+.appearanceSwatch{position:relative;display:block;width:31px;height:31px;flex-shrink:0;border-radius:10px;background:var(--swatch);border:1px solid color-mix(in srgb,var(--swatch) 70%,white);box-shadow:0 0 13px color-mix(in srgb,var(--swatch) 20%,transparent)}
+.appearanceSwatch.metallicBlue{background:linear-gradient(128deg,#D7E8FF 0%,#6B9AFF 13%,#245BFF 32%,#1637C9 55%,#081E70 76%,#8BD0FF 100%);border-color:#7DAAFF;box-shadow:0 0 15px #245BFF42}
+.appearanceColorCopy{display:grid;gap:4px;flex:1;min-width:0}
+.appearanceColorCopy b{font-size:11px;font-weight:700}
+.appearanceColorCopy small{font:9px ui-monospace,SFMono-Regular,Menlo,monospace;color:#89959d}
+.appearanceChoice{width:23px;height:23px;display:grid;place-items:center;flex-shrink:0;border:1px solid #354047;border-radius:50%;color:var(--green)}
+.appearanceColorOption.selected .appearanceChoice{background:var(--green);border-color:var(--green);color:var(--accent-ink)}
+.appearanceFooter{display:flex;align-items:center;gap:9px;margin-top:14px;border-top:1px solid #2a3136;padding-top:14px}
+.appearancePreviewDot{width:9px;height:9px;flex-shrink:0;border-radius:50%;box-shadow:0 0 10px color-mix(in srgb,var(--green) 40%,transparent)}
+.appearanceFooter>div{display:grid;gap:4px;flex:1;min-width:0}
+.appearanceFooter b{font-size:10px;color:#ecf0f2}
+.appearanceFooter small{font-size:8px;line-height:1.35;color:#829098;overflow-wrap:anywhere}
+.appearanceDone{border:1px solid var(--accent-border);border-radius:8px;background:var(--green);color:var(--accent-ink);padding:9px 13px;font-size:10px;font-weight:800}
+.appearanceDone:hover{filter:brightness(1.08)}
+.textBtn,.loginLinks button,.loginNotice{color:var(--green)}
+.navItem.active{background:var(--accent-soft);border-color:var(--accent-border-muted);color:var(--accent-text)}
+.navItem.active .navGlyph{color:var(--green)}
+.statusDot.connected{box-shadow:0 0 9px color-mix(in srgb,var(--green) 48%,transparent)}
+.primaryBtn,.fluxBtn.primary,.wellnessPrimary,.knowledgeBtn.primary,.pushSetupButton{border-color:var(--accent-border)!important;background:var(--green)!important;color:var(--accent-ink)!important}
+.primaryBtn:hover,.fluxBtn.primary:hover,.wellnessPrimary:hover,.knowledgeBtn.primary:hover,.pushSetupButton:hover{filter:brightness(1.08)}
+.flux{--fx-green:var(--green)!important}
+.wellness{--well-green:var(--green)!important}
+.knowledge{--know-green:var(--green)!important}
+.fluxLive{box-shadow:0 0 10px color-mix(in srgb,var(--green) 48%,transparent)}
+.fluxTab.active,.wellnessTabs button.active,.wellnessWeekChart>button.picked,.wellnessHistory>button.current,.wellnessHistory>button:hover,.knowledgeFilters button.active{background:var(--accent-soft)!important;border-color:var(--accent-border-muted)!important;color:var(--accent-text)!important}
+.fluxTab.active .lineIcon,.wellnessTabs button.active .lineIcon,.knowledgeFilters button.active .lineIcon{color:var(--green)!important}
+.wellnessMood button.selected{border-color:var(--green)!important;background:var(--accent-soft)!important;color:var(--accent-text)!important;box-shadow:inset 0 0 0 1px var(--accent-border-muted)!important}
+.wellnessMood button[aria-pressed="true"] .wellnessMoodIcon{color:var(--green)!important}
+.wellnessBarTrack i{background:linear-gradient(180deg,var(--green),color-mix(in srgb,var(--green) 56%,#101316))!important;box-shadow:0 0 9px var(--accent-glow)!important}
+.wellnessLegend i{background:var(--green)!important}
+.wellnessHistory>button.current,.wellnessHistory>button:hover{border-color:var(--accent-border-muted)!important}
+.wellnessHabitList article.completed .wellnessHabitCheck,.habitCheck.done{background:var(--accent-soft)!important;border-color:var(--accent-border-muted)!important;color:var(--green)!important}
+.donePill,.wellnessDoneBadge{border-color:var(--accent-border-muted)!important;background:var(--accent-soft)!important;color:var(--accent-text)!important}
+.knowledgeCard.pinned{border-color:var(--accent-border-muted)!important;box-shadow:inset 3px 0 0 var(--green)!important}
+.knowledgeCard.pinned .knowledgePin,.knowledgePin.pinned .lineIcon{color:var(--green)!important}
+.quoteOrb{border-color:color-mix(in srgb,var(--green) 25%,transparent);box-shadow:0 0 0 16px color-mix(in srgb,var(--green) 3%,transparent),0 0 0 32px color-mix(in srgb,var(--green) 2%,transparent)}
+.loginGlow{border-color:color-mix(in srgb,var(--green) 10%,transparent);box-shadow:0 0 0 40px color-mix(in srgb,var(--green) 3%,transparent),0 0 0 80px color-mix(in srgb,var(--green) 2%,transparent)}
+.pushSetupButton{background:var(--green)!important}
+@keyframes appearanceFade{from{opacity:0}to{opacity:1}}
+@keyframes appearanceSlide{from{opacity:0;transform:translateY(-7px) scale(.99)}to{opacity:1;transform:translateY(0) scale(1)}}
+@media(max-width:600px){
+ .settingsBackdrop{align-items:flex-end;justify-content:center;padding:8px 8px calc(8px + env(safe-area-inset-bottom));background:rgba(0,0,0,.6)}
+ .appearancePanel{width:100%;max-width:460px;max-height:88dvh;border-radius:19px;padding:17px 15px}
+ .appearanceColorGrid{grid-template-columns:1fr}
+ .appearanceColorOption{min-height:54px}
+ .appearanceBrand h2{font-size:16px}
+}
+@media(prefers-reduced-motion:reduce){.settingsBackdrop,.appearancePanel{animation:none!important}}
