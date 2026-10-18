@@ -410,8 +410,31 @@ async function loadWorkspaceContext(session: { sub: string; name: string; fid: s
         [session.sub]
       );
       lines.push("Archivos reales guardados por DEMIAN de esta cuenta: " + (files.rows.length ? JSON.stringify(files.rows.map(row => ({
-        nombre: assistantText(row.file_name, 180), tituloOrganizado: assistantText(row.note_title, 160), categoria: assistantText(row.category, 80), resumen: assistantText(row.summary, 350), estado: assistantText(row.status, 30)
+        id: String(row.id), nombre: assistantText(row.file_name, 180), tituloOrganizado: assistantText(row.note_title, 160), categoria: assistantText(row.category, 80), resumen: assistantText(row.summary, 350), estado: assistantText(row.status, 30)
       }))) : "Todavía no hay archivos adjuntos guardados.") + ".");
+      const terms = question.split(/[^a-z0-9áéíóúüñ]+/i).filter(term => term.length >= 4 && !new Set(["para","como","donde","cuando","cuales","cuáles","sobre","archivo","archivos","documento","documentos","puedes","quiero","analiza","analizar","resume","resumen","dime","muestra","segundo","cerebro"]).has(term)).slice(0, 8);
+      if (terms.length) {
+        const conditions = terms.map((_, index) => "f.extracted_text ILIKE $" + (index + 2)).join(" OR ");
+        const params = [session.sub, ...terms.map(term => "%" + term.replace(/[\\%_]/g, "\\$&") + "%")];
+        const matches = await db().query(
+          "SELECT f.file_name,f.category,f.summary,f.extracted_text FROM public.demian_brain_files f WHERE f.user_id=$1 AND f.extracted_text<>'' AND (" + conditions + ") ORDER BY f.created_at DESC LIMIT 5",
+          params
+        );
+        const excerpts: string[] = [];
+        for (const row of matches.rows) {
+          const body = String(row.extracted_text || "");
+          const normalized = body.toLocaleLowerCase("es-MX");
+          let best = -1;
+          for (const term of terms) {
+            const at = normalized.indexOf(term.toLocaleLowerCase("es-MX"));
+            if (at >= 0 && (best < 0 || at < best)) best = at;
+          }
+          const start = Math.max(0, best < 0 ? 0 : best - 500);
+          const snippet = body.slice(start, start + 2200).replace(/\\s+/g, " ").trim();
+          if (snippet) excerpts.push(JSON.stringify({ archivo: assistantText(row.file_name, 180), categoria: assistantText(row.category, 80), resumen: assistantText(row.summary, 350), extracto: snippet }));
+        }
+        if (excerpts.length) lines.push("EXTRACTOS RECUPERADOS DE DOCUMENTOS QUE COINCIDEN CON LA CONSULTA (no representan necesariamente el documento completo; usa solo evidencia visible): " + excerpts.join("\n").slice(0, 10500));
+      }
     } catch {
       lines.push("No se pudo consultar Segundo cerebro en esta solicitud. No inventes notas ni archivos.");
     }
