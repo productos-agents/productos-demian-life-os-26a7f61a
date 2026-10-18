@@ -71,5 +71,5 @@ test('financial monthly reports fetch rows for the selected month rather than on
   assert.match(module, /transactionMonth=/);
   assert.match(module, /reportTransactions/);
   assert.match(module, /Cargar más del periodo/);
-  assert.match(module, /data\?\.summary\.reportIncome/);
+  assert.match(module, /data\.summary\.reportIncome/);
 });
