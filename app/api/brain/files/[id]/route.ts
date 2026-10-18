@@ -46,8 +46,10 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     const file = result.rows[0] as Record<string, unknown> | undefined;
     if (!file) return NextResponse.json({ ok: false, error: "Archivo no encontrado en tu biblioteca." }, { status: 404, headers: noCache });
     const bytes = Buffer.isBuffer(file.file_data) ? file.file_data : Buffer.from(file.file_data as Uint8Array);
+    const payload = new ArrayBuffer(bytes.byteLength);
+    new Uint8Array(payload).set(bytes);
     const name = String(file.file_name || "archivo").replace(/[\r\n"]/g, "_");
-    return new NextResponse(bytes, {
+    return new NextResponse(payload, {
       status: 200,
       headers: {
         ...noCache,
