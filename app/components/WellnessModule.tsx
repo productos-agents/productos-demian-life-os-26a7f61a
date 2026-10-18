@@ -13,6 +13,7 @@ type Log = {
   notes: string;
 };
 type Habit = {id:string;kind:"habit";title:string;details:string;frequency:string;status:string;doneToday?:boolean;createdAt:string};
+type MoodCheckin = {id:number;checkin_date:string;time_slot:string;mood:number;note:string;created_at:string};
 const todayLocal=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");};
 const fmtDate=(d:string)=>new Date(d+"T12:00:00").toLocaleDateString("es-MX",{weekday:"short",day:"numeric",month:"short"});
 const moodLabels=["","Muy bajo","Bajo","Neutral","Bien","Muy bien"];
@@ -21,6 +22,7 @@ const emptyForm=(date:string)=>({date,sleepHours:"",waterGlasses:"",activityMinu
 type WellnessDraft=ReturnType<typeof emptyForm>;
 export default function WellnessModule(){
   const [logs,setLogs]=useState<Log[]>([]);
+  const [moodCheckins,setMoodCheckins]=useState<MoodCheckin[]>([]);
   const [habits,setHabits]=useState<Habit[]>([]);
   const [draft,setDraft]=useState<WellnessDraft>(emptyForm(todayLocal()));
   const [habitTitle,setHabitTitle]=useState("");
@@ -37,13 +39,19 @@ export default function WellnessModule(){
 
   const refresh=useCallback(async()=>{
     try{
-      const [wellnessRes,itemsRes]=await Promise.all([fetch("/api/wellness",{cache:"no-store"}),fetch("/api/data?date="+todayLocal(),{cache:"no-store"})]);
-      const [wellnessJson,itemsJson]=await Promise.all([wellnessRes.json(),itemsRes.json()]);
+      const [wellnessRes,itemsRes,moodRes]=await Promise.all([
+        fetch("/api/wellness",{cache:"no-store"}),
+        fetch("/api/data?date="+todayLocal(),{cache:"no-store"}),
+        fetch("/api/push/mood",{cache:"no-store"})
+      ]);
+      const [wellnessJson,itemsJson,moodJson]=await Promise.all([wellnessRes.json(),itemsRes.json(),moodRes.json().catch(()=>({ok:false,checkins:[]}))]);
       if(!wellnessRes.ok||!wellnessJson.ok)throw new Error(wellnessJson.error||"No se pudo cargar el bienestar.");
       if(!itemsRes.ok||!itemsJson.ok)throw new Error(itemsJson.error||"No se pudieron cargar los hábitos.");
       const nextLogs=wellnessJson.logs as Log[];
       const nextHabits=(itemsJson.items as Habit[]).filter((i)=>i.kind==="habit");
-      setLogs(nextLogs);setHabits(nextHabits);setError("");
+      setLogs(nextLogs);
+      setMoodCheckins(moodRes.ok&&moodJson.ok&&Array.isArray(moodJson.checkins)?moodJson.checkins as MoodCheckin[]:[]);
+      setHabits(nextHabits);setError("");
       const d=nextLogs.find((l)=>l.log_date===draft.date);
       if(d){
         setDraft({date:d.log_date,sleepHours:d.sleep_hours==null?"":String(d.sleep_hours),waterGlasses:d.water_glasses==null?"":String(d.water_glasses),activityMinutes:d.activity_minutes==null?"":String(d.activity_minutes),mood:d.mood==null?"":String(d.mood),weightKg:d.weight_kg==null?"":String(d.weight_kg),notes:d.notes||""});
@@ -145,6 +153,8 @@ export default function WellnessModule(){
           <div className="wellnessLegend"><span><i/> Minutos de actividad física</span></div>
           <div className="wellnessHistoryHead"><h4>Registros recientes</h4><span>{logs.length} guardados</span></div>
           <div className="wellnessHistory">{logs.slice(0,8).map(l=><button key={l.id} onClick={()=>chooseDate(l.log_date)} className={draft.date===l.log_date?"current":""}><span><b>{fmtDate(l.log_date)}</b><small>{l.mood?moodLabels[l.mood]:"Sin estado de ánimo registrado"}</small></span><span className="wellnessHistoryNumbers">{l.sleep_hours==null?"—":l.sleep_hours+" h"} <i/> {l.activity_minutes==null?"—":l.activity_minutes+" min"}</span></button>)}{!logs.length&&<p className="wellnessEmptyText">Tus registros diarios aparecerán aquí.</p>}</div>
+          <div className="wellnessHistoryHead"><h4>Pausas de ánimo</h4><span>{moodCheckins.filter(c=>c.checkin_date===todayLocal()).length} hoy · {moodCheckins.length} recientes</span></div>
+          <div className="wellnessPulseHistory">{moodCheckins.slice(0,9).map(c=><div key={c.id}><span><b>{fmtDate(c.checkin_date)}</b><small>{c.time_slot==="manual"?"Registro manual":c.time_slot} · {moodLabels[c.mood]||"Estado registrado"}</small>{c.note&&<small className="wellnessPulseNote">{c.note}</small>}</span><strong aria-label={moodLabels[c.mood]||"Estado de ánimo"}>{moodFaces[c.mood]||"◯"}</strong></div>)}{!moodCheckins.length&&<p className="wellnessEmptyText">Cuando registres cómo te sientes desde una notificación, tus pausas aparecerán aquí.</p>}</div>
         </div>
       </div>
     </>:<div className="wellnessHabitLayout">
