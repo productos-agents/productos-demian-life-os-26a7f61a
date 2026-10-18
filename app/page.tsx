@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { APP_VERSION } from "../lib/app-version";
+import { compareTasks } from "../lib/task-planning.mjs";
 import FinanceModule from "./components/FinanceModule";
 import WellnessModule from "./components/WellnessModule";
 import KnowledgeModule from "./components/KnowledgeModule";
@@ -51,8 +52,7 @@ function applyAccentTheme(theme:AccentTheme) {
 
 const today = () => { const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
 const money = (n:number) => new Intl.NumberFormat("es-MX",{style:"currency",currency:"MXN",maximumFractionDigits:2}).format(n);
-const priorityWeight=(category:string)=>category==="Alta"?0:category==="Baja"?2:1;
-const compareTasks=(a:Item,b:Item)=>{const dueA=a.dueDate||"9999-12-31",dueB=b.dueDate||"9999-12-31";return dueA.localeCompare(dueB)||priorityWeight(a.category)-priorityWeight(b.category)||String(b.createdAt||"").localeCompare(String(a.createdAt||""));};
+
 
 // Frases compartidas por todos los usuarios. La fecha se calcula con la zona horaria
 // de Ciudad de México para que todos vean la misma frase durante el mismo día.
@@ -192,6 +192,16 @@ export default function Home() {
     finally { setLoading(false); }
   },[]);
   useEffect(()=>{ void refresh(); },[refresh]);
+  useEffect(()=>{
+    const handleShortcut=(event:KeyboardEvent)=>{
+      if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==="k"){
+        event.preventDefault();
+        document.querySelector<HTMLInputElement>('input[aria-label="Buscar"]')?.focus();
+      }
+    };
+    window.addEventListener("keydown",handleShortcut);
+    return ()=>window.removeEventListener("keydown",handleShortcut);
+  },[]);
   useEffect(()=>{
     let cancelled=false;
     applyAccentTheme("green");
