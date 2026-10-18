@@ -91,6 +91,60 @@ test('habit completion respects daily, weekly, monthly and weekday frequencies',
   assert.match(wellness, /disabled={!due}/);
 });
 
+
+test('session revocation is enforced by proxy, logout and password recovery', async () => {
+  const identity = await read('../lib/identity.ts');
+  const proxy = await read('../proxy.ts');
+  const auth = await read('../app/api/auth/route.ts');
+  const recovery = await read('../app/api/auth/recovery/confirm/route.ts');
+  assert.match(identity, /sid: string/);
+  assert.match(identity, /export async function isActiveSessionId/);
+  assert.match(identity, /revoked_at IS NULL AND expires_at>NOW\(\)/);
+  assert.match(proxy, /await isActiveSessionId\(payload\.sub, payload\.sid\)/);
+  assert.match(auth, /await revokeSession\(session\)/);
+  assert.match(recovery, /UPDATE public\.demian_sessions SET revoked_at=NOW\(\) WHERE user_id=\$1/);
+});
+
+test('recovery tokens are hashed, expire and can be consumed only once', async () => {
+  const recovery = await read('../app/api/auth/recovery/route.ts');
+  const confirm = await read('../app/api/auth/recovery/confirm/route.ts');
+  assert.match(recovery, /createHash\("sha256"\)/);
+  assert.match(recovery, /randomBytes\(32\)/);
+  assert.match(recovery, /NOW\(\)\+INTERVAL '30 minutes'/);
+  assert.match(confirm, /expires_at>NOW\(\) AND used_at IS NULL FOR UPDATE/);
+  assert.match(confirm, /SET used_at=NOW\(\) WHERE token_hash=\$1/);
+});
+
+test('privacy export is owner-scoped and excludes password and push secrets', async () => {
+  const route = await read('../app/api/privacy/export/route.ts');
+  assert.match(route, /WHERE user_id=\$1 ORDER BY created_at ASC/);
+  assert.match(route, /WHERE i\.user_id=\$1/);
+  assert.match(route, /WHERE user_id=\$1/);
+  assert.doesNotMatch(route, /password_hash|p256dh|VAPID_PRIVATE_KEY|SELECT endpoint/);
+  assert.match(route, /endpointsAndSecretsExcluded: true/);
+});
+
+test('privacy pages are public but request administration remains behind the session proxy', async () => {
+  const proxy = await read('../proxy.ts');
+  const requests = await read('../app/api/privacy/requests/route.ts');
+  assert.match(proxy, /path === "\/recover"/);
+  assert.match(proxy, /path === "\/privacy"/);
+  assert.doesNotMatch(proxy, /path\.startsWith\("\/privacy"\)/);
+  assert.match(requests, /role\(req\) !== "legacy"/);
+});
+
+test('migrations are checksummed and the security migration is additive', async () => {
+  const migration = await read('../db/migrations/0001_security_privacy.sql');
+  const runner = await read('../scripts/migrate.mjs');
+  assert.match(runner, /demian_schema_migrations/);
+  assert.match(runner, /createHash\('sha256'\)/);
+  assert.match(runner, /Applied migration was edited/);
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS public\.demian_sessions/);
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS public\.demian_password_reset_tokens/);
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS public\.demian_privacy_requests/);
+  assert.doesNotMatch(migration, /DROP TABLE|TRUNCATE|DELETE FROM/i);
+});
+
 test('both official in-app signatures use the shared dynamic version', async () => {
   const home = await read('../app/page.tsx');
   const login = await read('../app/login/page.tsx');
