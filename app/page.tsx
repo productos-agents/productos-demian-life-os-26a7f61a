@@ -278,7 +278,11 @@ export default function Home() {
       const saved=await fetch("/api/push/subscription",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({subscription:subscription.toJSON()})});
       const result=await saved.json();
       if(!saved.ok||!result.ok)throw new Error(result.error||"No se pudo registrar el dispositivo.");
-      setPushEnabled(true);setReminders(true);setNotice("Notificaciones push activadas en este dispositivo.");
+      setPushEnabled(true);setReminders(true);setNotice("Notificaciones push activadas. Comprobando la entrega…");
+      const testResponse=await fetch("/api/push/test",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});
+      const testResult=await testResponse.json().catch(()=>({ok:false}));
+      if(testResponse.ok&&testResult.ok) setNotice("Notificaciones activadas y aviso de prueba enviado a este dispositivo.");
+      else setNotice("Notificaciones activadas. El aviso de prueba no pudo confirmarse; revisaremos la entrega al recibir el primer recordatorio.");
     } catch(error) { setNotice(error instanceof Error?error.message:"No se pudieron activar las notificaciones."); }
   };
   const saveMoodCheckin=async()=>{
