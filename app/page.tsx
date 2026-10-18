@@ -19,6 +19,34 @@ const sections: {id:Section; label:string; short:string; icon:LineIconName}[] = 
   {id:"habit",label:"Salud y hábitos",short:"Hábitos",icon:"heart-pulse"},
   {id:"note",label:"Segundo cerebro",short:"Notas",icon:"book-open"}
 ];
+
+type AccentTheme = "red" | "blue" | "pink" | "purple" | "green" | "orange" | "white";
+const accentThemes: {id:AccentTheme;name:string;hex:string;description:string;metallic?:boolean}[] = [
+  {id:"red",name:"Rojo láser",hex:"#FF003C",description:"Rojo neón intenso"},
+  {id:"blue",name:"Azul rey metálico",hex:"#245BFF",description:"Azul rey eléctrico con reflejo de acero",metallic:true},
+  {id:"pink",name:"Rosa plasma",hex:"#FF00A8",description:"Rosa fucsia neón"},
+  {id:"purple",name:"Morado eléctrico",hex:"#BD00FF",description:"Púrpura intenso"},
+  {id:"green",name:"Verde neón",hex:"#C6FF00",description:"Color original de DEMian"},
+  {id:"orange",name:"Naranja reactor",hex:"#FF7000",description:"Naranja neón intenso"},
+  {id:"white",name:"Blanco polar",hex:"#FFFFFF",description:"Blanco puro"}
+];
+function applyAccentTheme(theme:AccentTheme) {
+  const selected=accentThemes.find(item=>item.id===theme)||accentThemes.find(item=>item.id==="green")!;
+  const root=document.documentElement;
+  root.dataset.accentTheme=selected.id;
+  const style=root.style;
+  style.setProperty("--green",selected.hex);
+  style.setProperty("--fx-green",selected.hex);
+  style.setProperty("--well-green",selected.hex);
+  style.setProperty("--know-green",selected.hex);
+  style.setProperty("--accent-border",`color-mix(in srgb, ${selected.hex} 68%, white)`);
+  style.setProperty("--accent-soft",`color-mix(in srgb, ${selected.hex} 13%, #101316)`);
+  style.setProperty("--accent-border-muted",`color-mix(in srgb, ${selected.hex} 42%, #24292e)`);
+  style.setProperty("--accent-text",`color-mix(in srgb, ${selected.hex} 72%, white)`);
+  style.setProperty("--accent-glow",`color-mix(in srgb, ${selected.hex} 36%, transparent)`);
+  style.setProperty("--accent-ink","#080A0C");
+}
+
 const today = () => { const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
 const money = (n:number) => new Intl.NumberFormat("es-MX",{style:"currency",currency:"MXN",maximumFractionDigits:2}).format(n);
 
@@ -127,6 +155,10 @@ export default function Home() {
   const [routineNote,setRoutineNote] = useState("");
   const [routineSlot,setRoutineSlot] = useState("manual");
   const [dailyWord,setDailyWord] = useState({word:"Constancia",message:"Los pasos pequeños que repites hoy construyen un mañana más sólido."});
+  const [settingsOpen,setSettingsOpen] = useState(false);
+  const [accentTheme,setAccentTheme] = useState<AccentTheme>("green");
+  const [themeSaving,setThemeSaving] = useState(false);
+  const [themeSaveError,setThemeSaveError] = useState("");
   const refresh = useCallback(async () => {
     setFinanceConnection("checking");
     try {
@@ -150,6 +182,19 @@ export default function Home() {
     finally { setLoading(false); }
   },[]);
   useEffect(()=>{ void refresh(); },[refresh]);
+  useEffect(()=>{
+    let cancelled=false;
+    applyAccentTheme("green");
+    void fetch("/api/preferences",{cache:"no-store"}).then(async response=>{
+      const data=await response.json();
+      if(response.ok&&data.ok&&accentThemes.some(theme=>theme.id===data.theme)&&!cancelled){
+        const theme=data.theme as AccentTheme;
+        setAccentTheme(theme);
+        applyAccentTheme(theme);
+      }
+    }).catch(()=>{});
+    return ()=>{cancelled=true;};
+  },[]);
   useEffect(()=>{
     let cancelled=false;
     if(!("serviceWorker" in navigator)||!("PushManager" in window)||!("Notification" in window)) return;
@@ -253,6 +298,19 @@ export default function Home() {
     catch {setNotice("No se pudo eliminar el registro.");}
   };
   const logout = async () => { try { await fetch("/api/auth", { method: "DELETE" }); window.location.assign("/login"); } catch { setNotice("No se pudo cerrar la sesión."); } };
+  const selectAccentTheme = async (theme:AccentTheme) => {
+    setAccentTheme(theme);
+    applyAccentTheme(theme);
+    setThemeSaving(true);
+    setThemeSaveError("");
+    try{
+      const response=await fetch("/api/preferences",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({theme})});
+      const data=await response.json();
+      if(!response.ok||!data.ok) throw new Error(data.error||"No se pudo guardar tu color.");
+    }catch(error){
+      setThemeSaveError(error instanceof Error?error.message:"No se pudo guardar tu preferencia. Comprueba la conexión.");
+    }finally{setThemeSaving(false);}
+  };
   const enableReminders = async () => {
     try {
       if(pushEnabled){
@@ -295,7 +353,32 @@ export default function Home() {
     }catch(error){setNotice(error instanceof Error?error.message:"No se pudo guardar el check-in.");}
   };
   const heading=sections.find(s=>s.id===section)?.label||"DEMian";
-  return <main className="shell"><Nudge kind={routineDialog as any} onClose={()=>setRoutineDialog(null)} mood={routineMood} setMood={setRoutineMood} note={routineNote} setNote={setRoutineNote} onSaveMood={saveMoodCheckin} word={dailyWord.word} message={dailyWord.message} onMoney={()=>setSection("transaction")} onReminder={()=>{setRoutineDialog(null);setSection("task");setForm({title:"",details:"",amount:"",category:"",dueDate:"",frequency:"Diario"});setFormOpen(true);}} />
+  return <main className="shell">
+    {settingsOpen&&<div className="settingsBackdrop" role="presentation" onClick={()=>setSettingsOpen(false)}>
+      <section className="appearancePanel" role="dialog" aria-modal="true" aria-labelledby="appearanceTitle" onClick={event=>event.stopPropagation()}>
+        <header className="appearanceHead">
+          <div className="appearanceBrand">
+            <span className="appearanceJ">J</span>
+            <div><p>AJUSTES DE DEMIAN</p><h2 id="appearanceTitle">Personaliza tu espacio</h2></div>
+          </div>
+          <button type="button" className="appearanceClose" aria-label="Cerrar ajustes" onClick={()=>setSettingsOpen(false)}><LineIcon name="x" size={18}/></button>
+        </header>
+        <div className="appearanceIntro"><span>APARIENCIA</span><p>Elige el color de acento de tu interfaz. El fondo oscuro y el diseño se mantienen.</p></div>
+        <div className="appearanceColorGrid" role="radiogroup" aria-label="Color de acento">
+          {accentThemes.map(theme=><button key={theme.id} type="button" role="radio" aria-checked={accentTheme===theme.id} disabled={themeSaving} className={accentTheme===theme.id?"appearanceColorOption selected":"appearanceColorOption"} onClick={()=>void selectAccentTheme(theme.id)}>
+            <span className={theme.metallic?"appearanceSwatch metallicBlue":"appearanceSwatch"} style={{"--swatch":theme.hex} as React.CSSProperties} />
+            <span className="appearanceColorCopy"><b>{theme.name}</b><small>{theme.hex}</small></span>
+            <span className="appearanceChoice">{accentTheme===theme.id?<LineIcon name="check" size={15}/>:null}</span>
+          </button>)}
+        </div>
+        <div className="appearanceFooter">
+          <span className="appearancePreviewDot" style={{background:accentThemes.find(theme=>theme.id===accentTheme)?.hex}}/>
+          <div><b>{accentThemes.find(theme=>theme.id===accentTheme)?.name}</b><small>{themeSaving?"Guardando preferencia…":themeSaveError||"El color se guarda en tu cuenta."}</small></div>
+          <button type="button" className="appearanceDone" onClick={()=>setSettingsOpen(false)}>Listo</button>
+        </div>
+      </section>
+    </div>}
+    <Nudge kind={routineDialog as any} onClose={()=>setRoutineDialog(null)} mood={routineMood} setMood={setRoutineMood} note={routineNote} setNote={setRoutineNote} onSaveMood={saveMoodCheckin} word={dailyWord.word} message={dailyWord.message} onMoney={()=>setSection("transaction")} onReminder={()=>{setRoutineDialog(null);setSection("task");setForm({title:"",details:"",amount:"",category:"",dueDate:"",frequency:"Diario"});setFormOpen(true);}} />
     <aside className="sidebar">
       <div className="brand"><div className="brandMark">D<span>·</span></div><div><b>DEMian</b><small>LIFE OS <i>V0.1</i></small></div></div>
       <div className="workspace"><span className="avatar">{userInitial}</span><div><b>{userName}</b><small>Espacio personal</small></div><span className="dots">•••</span></div>
@@ -304,7 +387,7 @@ export default function Home() {
       <div className="sidebarBottom"><div className="connection"><span className={"statusDot "+connection}></span><div><b>{connection==="connected"?"Base de datos conectada":connection==="checking"?"Verificando conexión":"Sin conexión"}</b><small>{connection==="connected"?"PostgreSQL · Neon":connection==="checking"?"Comprobando persistencia":"Revisa configuración del servidor"}</small></div></div><button className="quietBtn" onClick={()=>void enableReminders()}><LineIcon name={pushEnabled?"check-circle":"bell" as LineIconName} size={16}/>{pushEnabled?"Notificaciones activas · Desactivar":"Activar notificaciones push"}</button><button className="quietBtn logoutBtn" onClick={logout}><LineIcon name="log-out" size={16}/>Cerrar sesión</button><small className="privacy">Tus registros se guardan en la base de datos de DEMian.</small></div>
     </aside>
     <section className="main">
-      <header className="topbar"><div className="breadcrumb">DEMian <span>/</span> {heading}</div><div className="topActions"><div className="searchBox"><LineIcon name="search" size={15}/><input aria-label="Buscar" placeholder="Buscar en tu sistema..." value={query} onChange={e=>setQuery(e.target.value)}/><kbd>⌘ K</kbd></div><button className="roundBtn" title="Actualizar" aria-label="Actualizar" onClick={()=>void refresh()}><LineIcon name="refresh-cw" size={16}/></button><span className="avatar">{userInitial}</span></div></header>
+      <header className="topbar"><div className="breadcrumb">DEMian <span>/</span> {heading}</div><div className="topActions"><div className="searchBox"><LineIcon name="search" size={15}/><input aria-label="Buscar" placeholder="Buscar en tu sistema..." value={query} onChange={e=>setQuery(e.target.value)}/><kbd>⌘ K</kbd></div><button className="roundBtn" title="Actualizar" aria-label="Actualizar" onClick={()=>void refresh()}><LineIcon name="refresh-cw" size={16}/></button><button type="button" className={settingsOpen?"avatar settingsTrigger active":"avatar settingsTrigger"} aria-label="Abrir ajustes de apariencia" title="Ajustes de apariencia" aria-haspopup="dialog" aria-expanded={settingsOpen} onClick={()=>setSettingsOpen(true)}>{userInitial}</button></div></header>
       <section className="pushSetup" aria-label="Configuración de notificaciones">
         <div className="pushSetupCopy"><b>{pushEnabled?"Notificaciones push activas":"Activa las notificaciones de DEMian"}</b><small>{pushEnabled?"Recibirás tus pausas de bienestar, finanzas, recordatorios y la palabra del día.":"3 pausas de bienestar, 5 pausas financieras, revisión de recordatorios y palabra motivacional cada mañana."}</small></div>
         <button className="pushSetupButton" onClick={()=>void enableReminders()}>{pushEnabled?"Desactivar":"Activar notificaciones"}</button>
