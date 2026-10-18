@@ -53,9 +53,23 @@ export async function GET(req: NextRequest) {
   if (!uid) return unauthenticated();
   try {
     await ready();
-    const date = validDate(new URL(req.url).searchParams.get("date")) ?? new Date().toISOString().slice(0, 10);
-    const { rows } = await pool().query(itemsSql() + " WHERE i.user_id=$2 ORDER BY i.created_at DESC LIMIT 500", [date, uid]);
-    return NextResponse.json({ ok: true, items: rows.map(safeItem), database: "connected" }, { headers: noCache });
+    const url = new URL(req.url);
+    const date = validDate(url.searchParams.get("date")) ?? new Date().toISOString().slice(0, 10);
+    const requestedKind = url.searchParams.get("kind");
+    if (requestedKind && !["task", "transaction", "habit", "note"].includes(requestedKind)) return NextResponse.json({ ok: false, error: "Tipo de registro inválido." }, { status: 400, headers: noCache });
+    const parsedLimit = Number.parseInt(url.searchParams.get("limit") || "500", 10);
+    const parsedOffset = Number.parseInt(url.searchParams.get("offset") || "0", 10);
+    const limit = Number.isFinite(parsedLimit) ? Math.min(500, Math.max(1, parsedLimit)) : 500;
+    const offset = Number.isFinite(parsedOffset) ? Math.min(1000000, Math.max(0, parsedOffset)) : 0;
+    const params: (string | number)[] = [date, uid];
+    const kindFilter = requestedKind ? " AND i.kind=$3" : "";
+    if (requestedKind) params.push(requestedKind);
+    const limitIndex = params.length + 1, offsetIndex = params.length + 2;
+    params.push(limit + 1, offset);
+    const { rows } = await pool().query(itemsSql() + " WHERE i.user_id=$2" + kindFilter + " ORDER BY i.created_at DESC LIMIT $" + limitIndex + " OFFSET $" + offsetIndex, params);
+    const hasMore = rows.length > limit;
+    const page = hasMore ? rows.slice(0, limit) : rows;
+    return NextResponse.json({ ok: true, items: page.map(safeItem), hasMore, nextOffset: offset + page.length, database: "connected" }, { headers: noCache });
   } catch (e) {
     console.error("DEMian database GET:", e);
     return NextResponse.json({ ok: false, error: "No se pudo conectar con la base de datos." }, { status: 503, headers: noCache });
