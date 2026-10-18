@@ -284,7 +284,7 @@ export default function Home() {
       localStorage.setItem(key,JSON.stringify([...seen,...fresh.map(i=>i.id)]));
     }
   },[connection,items,reminders]);
-  const filtered = useMemo(()=>items.filter(i=>(section==="overview"||i.kind===section)&&[i.title,i.details,i.category].join(" ").toLocaleLowerCase("es").includes(query.toLocaleLowerCase("es"))).sort(section==="task"?compareTasks:()=>0),[items,section,query]);
+  const filtered = useMemo(()=>items.filter(i=>(section==="overview"||section==="assistant"||i.kind===section)&&[i.title,i.details,i.category].join(" ").toLocaleLowerCase("es").includes(query.toLocaleLowerCase("es"))).sort(section==="task"?compareTasks:()=>0),[items,section,query]);
   const tasks = items.filter(i=>i.kind==="task");
   const openTasks = tasks.filter(i=>i.status!=="done").sort(compareTasks);
   const dueTasks = openTasks.filter(i=>i.dueDate && i.dueDate<=today());
