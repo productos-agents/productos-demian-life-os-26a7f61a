@@ -1,6 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 import pg from 'pg';
 
 const { Pool } = pg;
@@ -13,15 +14,20 @@ if (!connectionString) {
 }
 const pool = new Pool({ connectionString, ssl: { rejectUnauthorized: false }, max: 1, connectionTimeoutMillis: 10000 });
 try {
-  await pool.query(`CREATE TABLE IF NOT EXISTS public.demian_schema_migrations (
-    name TEXT PRIMARY KEY,
-    checksum TEXT NOT NULL,
-    applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  )`);
+  const privilege = await pool.query("SELECT has_schema_privilege(current_user,'public','CREATE') AS can_create");
+  const canCreate = privilege.rows[0]?.can_create === true;
+  const tracker = await pool.query("SELECT to_regclass('public.demian_schema_migrations') AS relation");
+  if (!tracker.rows[0]?.relation) {
+    if (!canCreate) throw new Error('Migration tracker does not exist and this database role cannot create schema objects. Apply pending migrations with the database owner.');
+    await pool.query(`CREATE TABLE public.demian_schema_migrations (
+      name TEXT PRIMARY KEY,
+      checksum TEXT NOT NULL,
+      applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`);
+  }
   const files = (await readdir(migrationsDir)).filter(name => /^\d+_[a-z0-9_-]+\.sql$/i.test(name)).sort();
   for (const name of files) {
     const sql = await readFile(join(migrationsDir, name), 'utf8');
-    const { createHash } = await import('node:crypto');
     const checksum = createHash('sha256').update(sql).digest('hex');
     const previous = await pool.query('SELECT checksum FROM public.demian_schema_migrations WHERE name=$1', [name]);
     if (previous.rows.length) {
@@ -29,6 +35,7 @@ try {
       console.log(`Already applied: ${name}`);
       continue;
     }
+    if (!canCreate) throw new Error('Pending migration ' + name + ' requires schema-owner privileges. Apply it using the database owner and record its checksum.');
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
