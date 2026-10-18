@@ -159,6 +159,8 @@ export default function Home() {
   const [accentTheme,setAccentTheme] = useState<AccentTheme>("green");
   const [themeSaving,setThemeSaving] = useState(false);
   const [themeSaveError,setThemeSaveError] = useState("");
+  const [logoutLoading,setLogoutLoading] = useState(false);
+  const [logoutError,setLogoutError] = useState("");
   const refresh = useCallback(async () => {
     setFinanceConnection("checking");
     try {
@@ -297,7 +299,19 @@ export default function Home() {
     try {const r=await fetch("/api/data?id="+encodeURIComponent(item.id),{method:"DELETE"});const d=await r.json();if(!r.ok||!d.ok)throw new Error();setItems(prev=>prev.filter(x=>x.id!==item.id));setNotice("Registro eliminado.");}
     catch {setNotice("No se pudo eliminar el registro.");}
   };
-  const logout = async () => { try { await fetch("/api/auth", { method: "DELETE" }); window.location.assign("/login"); } catch { setNotice("No se pudo cerrar la sesión."); } };
+  const logout = async () => {
+    if(logoutLoading)return;
+    setLogoutLoading(true);setLogoutError("");
+    try{
+      const response=await fetch("/api/auth",{method:"DELETE",cache:"no-store"});
+      const data=await response.json().catch(()=>({ok:false}));
+      if(!response.ok||!data.ok)throw new Error(data.error||"No se pudo cerrar la sesión. Inténtalo de nuevo.");
+      window.location.assign("/login");
+    }catch(error){
+      const message=error instanceof Error?error.message:"No se pudo cerrar la sesión. Comprueba tu conexión.";
+      setLogoutError(message);setNotice(message);setLogoutLoading(false);
+    }
+  };
   const selectAccentTheme = async (theme:AccentTheme) => {
     setAccentTheme(theme);
     applyAccentTheme(theme);
@@ -375,6 +389,13 @@ export default function Home() {
           <span className="appearancePreviewDot" style={{background:accentThemes.find(theme=>theme.id===accentTheme)?.hex}}/>
           <div><b>{accentThemes.find(theme=>theme.id===accentTheme)?.name}</b><small>{themeSaving?"Guardando preferencia…":themeSaveError||"El color se guarda en tu cuenta."}</small></div>
           <button type="button" className="appearanceDone" onClick={()=>setSettingsOpen(false)}>Listo</button>
+        </div>
+        <div className="appearanceLogoutSection">
+          <div className="appearanceLogoutCopy"><b>¿Terminaste por ahora?</b><small>Tu sesión se cerrará en este dispositivo. Para volver, tendrás que iniciar sesión otra vez.</small></div>
+          {logoutError&&<p className="appearanceLogoutError" role="alert">{logoutError}</p>}
+          <button type="button" className="appearanceLogout" onClick={()=>void logout()} disabled={logoutLoading}>
+            <LineIcon name="log-out" size={17}/><span>{logoutLoading?"Cerrando sesión…":"Cerrar sesión"}</span>
+          </button>
         </div>
       </section>
     </div>}
