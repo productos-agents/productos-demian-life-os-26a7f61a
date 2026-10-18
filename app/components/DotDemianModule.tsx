@@ -76,9 +76,12 @@ export default function DotDemianModule({ pendingAttachment = null }: { pendingA
   const [configured, setConfigured] = useState(false);
   const [provider, setProvider] = useState("IA gratuita");
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const feed = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const handledAttachmentRef = useRef<string | null>(null);
 
   const scrollToLatest = useCallback(() => {
     requestAnimationFrame(() => feed.current?.scrollTo({ top: feed.current.scrollHeight, behavior: "smooth" }));
@@ -141,7 +144,7 @@ export default function DotDemianModule({ pendingAttachment = null }: { pendingA
     input.current?.focus();
   }
 
-  async function sendMessage(text = draft) {
+  async function sendMessage(text = draft, attachmentId?: string) {
     const message = text.trim();
     if (!message || sending) return;
     if (!configured) {
@@ -154,9 +157,9 @@ export default function DotDemianModule({ pendingAttachment = null }: { pendingA
     setDraft("");
     setMessages(previous => [...previous, { role: "user", content: message }]);
     try {
-      const data = await api<{ conversationId: string; reply: string; pendingAction?: PendingAction | null; refreshData?: boolean }>("/api/assistant", {
+      const data = await api<{ conversationId: string; reply: string; pendingAction?: PendingAction | null; refreshData?: boolean; fileSaved?: boolean }>("/api/assistant", {
         method: "POST",
-        body: JSON.stringify({ message, conversationId: activeId })
+        body: JSON.stringify({ message, conversationId: activeId, attachmentId })
       });
       setActiveId(data.conversationId);
       setMessages(previous => [...previous, { role: "assistant", content: data.reply }]);
