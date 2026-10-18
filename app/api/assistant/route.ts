@@ -117,14 +117,13 @@ async function askOpenRouter(instructions: string, history: ChatMessage[]): Prom
   return { reply, provider: "OpenRouter Free", model: typeof result.model === "string" ? result.model : OPENROUTER_MODEL };
 }
 async function askKeylessFreeAI(instructions: string, history: ChatMessage[]): Promise<ProviderAnswer> {
-  const response = await fetch("https://api.llmfaucet.dev/v1/chat/completions", {
+  const response = await fetch("https://blockrun.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
-      "Authorization": "Bearer free"
+      "Content-Type": "application/json"
     },
     body: JSON.stringify({
-      model: "auto",
+      model: "nvidia/gpt-oss-20b",
       messages: [{ role: "system", content: instructions }, ...history],
       max_tokens: 1400,
       temperature: 0.7,
@@ -133,13 +132,13 @@ async function askKeylessFreeAI(instructions: string, history: ChatMessage[]): P
     signal: AbortSignal.timeout(60_000)
   });
   const result = await response.json().catch(() => ({})) as Record<string, unknown>;
-  if (!response.ok) throw new ProviderFailure(response.status, "FreeGateway");
+  if (!response.ok) throw new ProviderFailure(response.status, "KeylessAI");
   const choices = Array.isArray(result.choices) ? result.choices as Array<Record<string, unknown>> : [];
   const first = choices[0] || {};
   const message = first.message && typeof first.message === "object" ? first.message as Record<string, unknown> : {};
   const reply = typeof message.content === "string" ? message.content.trim() : "";
-  if (!reply) throw new ProviderFailure(502, "FreeGateway");
-  return { reply, provider: "IA gratuita sin clave", model: typeof result.model === "string" ? result.model : "auto" };
+  if (!reply) throw new ProviderFailure(502, "KeylessAI");
+  return { reply, provider: "IA gratuita sin clave", model: typeof result.model === "string" ? result.model : "nvidia/gpt-oss-20b" };
 }
 async function askFreeAI(instructions: string, history: ChatMessage[]): Promise<ProviderAnswer> {
   if (OPENROUTER_API_KEY) return await askOpenRouter(instructions, history);
