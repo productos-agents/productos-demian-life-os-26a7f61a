@@ -829,7 +829,7 @@ export async function POST(req: NextRequest) {
       const execution = await executeAssistantTool(session, turn.toolCalls[0]);
       reply = execution.reply;
       pendingAction = execution.pendingAction || null;
-      recordChanged = execution.mutated === true;
+      recordChanged = true;
     }
     if (!reply) reply = "Te escucho. ¿Qué te gustaría hacer?";
     await db().query(
